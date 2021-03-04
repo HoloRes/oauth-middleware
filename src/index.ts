@@ -7,7 +7,7 @@ import DiscordStrategy from 'passport-discord';
 import User, { Type as UserType } from './models/User';
 
 // Local files
-import { UpdateUserGroups } from './jira';
+import { updateUserGroups } from './jira';
 
 const config = require('../config.json');
 
@@ -23,12 +23,14 @@ passport.use(new DiscordStrategy(config.discord, (accessToken, refreshToken, pro
 			const newUser = new User({ _id: profile.id });
 			newUser.save((err2: any) => {
 				if (err2) throw new Error(err2);
-				UpdateUserGroups();
-				cb(null, user);
+				updateUserGroups().then(() => {
+					cb(null, user);
+				});
 			});
 		} else {
-			UpdateUserGroups();
-			cb(null, user);
+			updateUserGroups().then(() => {
+				cb(null, user);
+			});
 		}
 	});
 }));

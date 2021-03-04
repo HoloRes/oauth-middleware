@@ -4,6 +4,11 @@
     "clientID": "id",
     "clientSecret": "secret",
     "callbackURL": "",
-    "scope": ["identify", "guilds"]
+    "scope": ["identify"]
+  },
+  "jira": {
+    "url": "",
+    "username": "",
+    "apiToken": ""
   }
 }
