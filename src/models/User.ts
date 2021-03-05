@@ -1,13 +1,17 @@
-import mongoose from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
 
-const UserSchema = new mongoose.Schema({
+const UserSchema: Schema = new mongoose.Schema({
 	_id: { type: String, required: true },
-	jiraId: { type: String },
+	jiraKey: { type: String },
+	username: { type: String, required: true },
+	email: { type: String, required: true },
 });
 
-export default mongoose.model('User', UserSchema, 'users');
-
-export interface Type {
+export interface Type extends Document {
 	_id: string,
-	jiraId?: string
+	jiraKey?: string,
+	username: string,
+	email: string
 }
+
+export default mongoose.model<Type>('User', UserSchema, 'users');

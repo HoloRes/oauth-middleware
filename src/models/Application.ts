@@ -1,17 +1,21 @@
-import mongoose from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
+import intformat from 'biguint-format';
+import FlakeId from 'flake-idgen';
 
-const ApplicationSchema = new mongoose.Schema({
+const flakeIdGen = new FlakeId();
+
+const ApplicationSchema: Schema = new mongoose.Schema({
+	_id: { type: String, default: intformat(flakeIdGen.next(), 'dec').toString() }, // Client ID
 	name: { type: String, required: true },
-	callbackUrl: [String],
-	clientId: { type: String, required: true },
+	redirectUrl: { type: String, required: true },
 	clientSecret: { type: String, required: true },
 });
 
-export default mongoose.model('Application', ApplicationSchema, 'applications');
-
-export interface Type {
-	_id?: string,
-	callbackUrl: Array<String>,
+export interface Type extends Document {
+	_id: string,
+	redirectUrl: string,
 	clientId: string,
-	clientSecret: String,
+	clientSecret: string,
 }
+
+export default mongoose.model<Type>('Application', ApplicationSchema, 'applications');

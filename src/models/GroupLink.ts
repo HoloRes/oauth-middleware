@@ -1,13 +1,15 @@
-import mongoose from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
 
-const GroupLinkSchema = new mongoose.Schema({
+const GroupLinkSchema: Schema = new mongoose.Schema({
 	_id: { type: String, required: true },
-	jiraId: { type: String },
+	jiraName: { type: String, required: true },
+	baseRole: { type: Boolean, default: false },
 });
 
-export default mongoose.model('GroupLink', GroupLinkSchema, 'groups');
-
-export interface Type {
+export interface Type extends Document {
 	_id: string,
-	jiraId?: string
+	jiraName?: string,
+	baseRole: boolean
 }
+
+export default mongoose.model<Type>('GroupLink', GroupLinkSchema, 'groups');

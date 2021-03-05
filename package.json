@@ -1,31 +1,43 @@
 {
   "devDependencies": {
     "@tsconfig/node14": "1.0.0",
+    "@types/connect-mongodb-session": "^2.4.0",
     "@types/express": "4.17.11",
+    "@types/express-session": "^1.17.3",
+    "@types/flake-idgen": "^0.1.30",
+    "@types/oauth2orize": "^1.8.8",
     "@types/passport": "1.0.6",
-    "@types/passport-discord": "0.1.3",
+    "@types/passport-http": "^0.3.8",
+    "@types/passport-http-bearer": "^1.0.36",
     "@typescript-eslint/eslint-plugin": "4.16.1",
     "@typescript-eslint/parser": "4.16.1",
     "eslint": "7.21.0",
     "eslint-config-airbnb-base": "14.2.1",
     "eslint-plugin-import": "2.22.1",
-    "ts-node": "9.1.1",
+    "ts-node": "^9.1.1",
     "typescript": "4.2.2"
   },
   "dependencies": {
+    "@oauth-everything/passport-discord": "^1.0.2",
     "axios": "^0.21.1",
+    "biguint-format": "^1.0.2",
+    "connect-mongodb-session": "^2.4.1",
     "discord.js": "^12.5.1",
     "express": "^4.17.1",
+    "express-session": "^1.17.1",
+    "flake-idgen": "^1.4.0",
     "mongoose": "^5.11.18",
+    "oauth2orize": "^1.11.0",
     "passport": "^0.4.1",
-    "passport-discord": "^0.1.4"
+    "passport-http": "^0.3.0",
+    "passport-http-bearer": "^1.0.1"
   },
   "name": "jira-oauth-middleware",
   "version": "1.0.0",
   "description": "An OAuth2 server that connects Jira to Discord and assigns groups based on roles.",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc -d",
+    "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
