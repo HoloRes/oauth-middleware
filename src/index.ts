@@ -2,7 +2,11 @@
 import express from 'express';
 import passport from 'passport';
 import session from 'express-session';
-import { Strategy as DiscordStrategy, Profile as DiscordProfile, VerifyCallback as DiscordVerifyCallback } from '@oauth-everything/passport-discord';
+import {
+	Profile as DiscordProfile,
+	Strategy as DiscordStrategy,
+	VerifyCallback as DiscordVerifyCallback,
+} from '@oauth-everything/passport-discord';
 import { Strategy as BearerStrategy } from 'passport-http-bearer';
 import { BasicStrategy } from 'passport-http';
 import Discord from 'discord.js';
@@ -123,16 +127,17 @@ passport.use(new DiscordStrategy(config.discord, (accessToken: string, refreshTo
 passport.use(new BearerStrategy((accessToken, callback) => {
 	AccessToken.findOne({ token: accessToken }, (err: any, token: AccessTokenType) => {
 		if (err) return callback(err);
+		console.log(token);
 
 		// No token found
-		if (!token) { return callback(null, false); }
+		if (!token) return callback(null, false);
 
 		User.findById(token.userId, (err2: any, user: UserType) => {
 			if (err) return callback(err2);
+			console.log(user);
 
 			// No user found
-			if (!user) { return callback(null, false); }
-
+			if (!user) return callback(null, false);
 			// Simple example with no scope
 			callback(null, user, { scope: '*' });
 		});
@@ -171,17 +176,16 @@ oauth2Server.grant(oauth2orize.grant.code((oauthClient, redirectUri, user, ares,
 	});
 
 	code.save((err) => {
-		console.log(err);
 		if (err) callback(err);
-		callback(null, code.token);
+		else callback(null, code.token);
 	});
 }));
 
 oauth2Server.exchange(oauth2orize.exchange.code((oauthClient, code, redirectUri, callback) => {
-	Code.findOne({ code }, (err: any, authCode: CodeType) => {
+	Code.findOne({ token: code }, (err: any, authCode: CodeType) => {
 		if (err) return callback(err);
 		// eslint-disable-next-line max-len
-		if (authCode === undefined || oauthClient._id !== authCode.clientId || redirectUri !== authCode.redirectUri) return callback(null, false);
+		if (!authCode || oauthClient.clientId !== authCode._id || redirectUri !== authCode.redirectUri) return callback(null, false);
 
 		// @ts-expect-error Callback is not options
 		Code.findByIdAndDelete(authCode._id, (err2: any) => {
@@ -201,6 +205,11 @@ oauth2Server.exchange(oauth2orize.exchange.code((oauthClient, code, redirectUri,
 		});
 	});
 }));
+
+app.use((req, res, next) => {
+	console.log(req.originalUrl);
+	next();
+});
 
 // Routes
 app.get('/auth/fail', (req, res) => {
@@ -224,33 +233,28 @@ app.get('/auth/discord/callback', passport.authenticate('discord', {
 
 	// @ts-expect-error member.roles and _id possibly undefined
 	if (!member.roles.cache.has(baseRole?._id)) return res.status(401).send("You don't have the required permissions to login");
-	req.session.reload(() => {
-		console.log(req.session);
-		// @ts-expect-error redirect does not exist in the type
-		if (req.session.redirect) {
-			// @ts-expect-error redirect does not exist
-			const { redirect } = req.session;
-			// @ts-expect-error redirect does not exist
-			req.session.redirect = undefined;
-			console.log(redirect);
-			res.redirect(redirect);
-		}
-	});
-
-	res.status(200).send('Signed in');
+	// @ts-expect-error redirect does not exist in the type
+	if (req.session.redirect) {
+		// @ts-expect-error redirect does not exist
+		const { redirect } = req.session;
+		// @ts-expect-error redirect does not exist
+		req.session.redirect = undefined;
+		return res.redirect(redirect);
+	} res.status(200).send('Signed in');
 });
 
-app.post('/oauth2/token', passport.authenticate(['client-basic'], { session: false }), [oauth2Server.token(), oauth2Server.errorHandler()]);
+app.post('/oauth2/token', [passport.authenticate('client-basic', { session: false }), oauth2Server.token(), oauth2Server.errorHandler()]);
 
 app.get('/oauth2/authorize',
 	(req, res, next) => {
 		// @ts-expect-error redirect does not exist
 		req.session.redirect = req.originalUrl;
-		console.log(req.session);
-		req.session.save();
 		next();
 	},
-	passport.authenticate(['discord', 'bearer']),
+	(req, res, next) => {
+		if (!req.isAuthenticated()) passport.authenticate(['discord', 'bearer'], { session: false });
+		else next();
+	},
 	oauth2Server.authorize((clientID, redirectURI, done) => {
 		Application.findById(clientID, (err:any, oauthClient: ApplicationType) => {
 			if (err) { return done(err); }
@@ -259,14 +263,11 @@ app.get('/oauth2/authorize',
 			return done(null, oauthClient, oauthClient.redirectUrl);
 		});
 	}),
-	(req, res) => {
-		res.status(200).send('Signed in');
-	});
+	oauth2Server.decision());
 
-// eslint-disable-next-line max-len
-// app.post('/oauth2/authorize', passport.authenticate(['discord', 'bearer'], { session: false }), oauth2Server.decision());
-
-app.get('/api/userinfo', passport.authenticate('bearer', { session: false }), (req, res) => {
+app.get('/api/userinfo', (req, res, next) => { console.log('Called'); next(); }, passport.authenticate('bearer', { session: false }), (req, res) => {
+	console.log('Auth passed');
+	console.log(req.user);
 	res.status(200).json(req.user);
 });
 
