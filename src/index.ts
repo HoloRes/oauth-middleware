@@ -243,12 +243,14 @@ app.post('/oauth2/token', [passport.authenticate('client-basic', { session: fals
 
 app.get('/oauth2/authorize',
 	(req, res, next) => {
+		// @ts-expect-error never
+		if (!req.session) req.session.regenerate();
 		// @ts-expect-error redirect does not exist
 		req.session.redirect = req.originalUrl;
 		next();
 	},
 	(req, res, next) => {
-		if (!req.isAuthenticated()) passport.authenticate(['discord', 'bearer'], { session: false });
+		if (!req.isAuthenticated()) res.redirect('/auth/discord');
 		else next();
 	},
 	oauth2Server.authorize((clientID, redirectURI, done) => {

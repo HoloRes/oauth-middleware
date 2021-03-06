@@ -32,7 +32,6 @@ const createUser = (username: string, email: string, discordId: string): Promise
 			if (err) throw new Error(err);
 			// eslint-disable-next-line no-param-reassign
 			doc.jiraKey = res.data.key;
-			console.log(doc);
 			await doc.save();
 			resolve(res.data);
 		});
@@ -50,8 +49,7 @@ const findUser = (username: string, email: string, discordId: string): Promise<U
 	}).then((res) => {
 		resolve(res.data);
 	}).catch((err) => {
-		console.log(err.response.data);
-		if (err.response?.statusCode === 404) {
+		if (err.response?.status === 404) {
 			createUser(username, email, discordId)
 				.then(() => findUser(username, email, discordId).then(resolve)).catch(reject);
 		} else reject(new Error(err));
@@ -152,7 +150,6 @@ export const updateUserGroupsByKey = (discordId: string, key: string): Promise<v
 		user.groups.items.forEach((group) => {
 			const link = groupLinks.find((item) => item.jiraName === group.name);
 			if (link && !member.roles.cache.has(link._id)) {
-				console.log('Calling delete');
 				axios.delete(`${url}/group/user`, {
 					params: {
 						groupname: link.jiraName,
