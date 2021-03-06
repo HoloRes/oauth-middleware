@@ -20,6 +20,5 @@
   },
   "discordServerId": "",
   "discordToken": "",
-  "adminToken": "",
-  "redisHost": ""
+  "adminToken": ""
 }

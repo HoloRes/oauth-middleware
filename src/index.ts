@@ -57,10 +57,10 @@ const sessionOptions = {
 	saveUninitialized: false,
 };
 
-/* if (app.get('env') === 'production') {
-	app.set('trust proxy', 1); // trust first proxy
+if (app.get('env') === 'production') {
+	app.set('trust proxy', 2); // trust first two proxies, CF and IIS
 	sessionOptions.cookie.secure = true; // serve secure cookies
-} */
+}
 
 app.use(session(sessionOptions));
 app.use(passport.initialize());
