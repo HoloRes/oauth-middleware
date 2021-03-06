@@ -42,7 +42,7 @@ const createUser = (username: string, email: string, discordId: string): Promise
 // eslint-disable-next-line max-len
 const findUser = (username: string, email: string, discordId: string): Promise<User> => new Promise((resolve, reject) => {
 	axios.get(`${url}/user`, {
-		params: { username },
+		params: { username, expand: 'groups' },
 		auth: {
 			username: config.jira.username,
 			password: config.jira.apiToken,
@@ -58,9 +58,9 @@ const findUser = (username: string, email: string, discordId: string): Promise<U
 	});
 });
 
-const findUserByKey = (key: string): Promise<User> => new Promise((resolve, reject) => {
+export const findUserByKey = (key: string): Promise<User> => new Promise((resolve, reject) => {
 	axios.get(`${url}/user`, {
-		params: { key },
+		params: { key, expand: 'groups' },
 		auth: {
 			username: config.jira.username,
 			password: config.jira.apiToken,
@@ -152,6 +152,7 @@ export const updateUserGroupsByKey = (discordId: string, key: string): Promise<v
 		user.groups.items.forEach((group) => {
 			const link = groupLinks.find((item) => item.jiraName === group.name);
 			if (link && !member.roles.cache.has(link._id)) {
+				console.log('Calling delete');
 				axios.delete(`${url}/group/user`, {
 					params: {
 						groupname: link.jiraName,

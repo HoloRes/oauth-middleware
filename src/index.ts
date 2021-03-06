@@ -21,7 +21,7 @@ import Code, { Type as CodeType } from './models/Code';
 import AccessToken, { Type as AccessTokenType } from './models/AccessToken';
 
 // Local files
-import { updateUserGroups, updateUserGroupsByKey } from './jira';
+import { updateUserGroups, updateUserGroupsByKey, findUserByKey } from './jira';
 import { uid } from './util';
 
 const MongoDBStore = require('connect-mongodb-session')(session);
@@ -127,19 +127,21 @@ passport.use(new DiscordStrategy(config.discord, (accessToken: string, refreshTo
 passport.use(new BearerStrategy((accessToken, callback) => {
 	AccessToken.findOne({ token: accessToken }, (err: any, token: AccessTokenType) => {
 		if (err) return callback(err);
-		console.log(token);
 
 		// No token found
 		if (!token) return callback(null, false);
 
 		User.findById(token.userId, (err2: any, user: UserType) => {
 			if (err) return callback(err2);
-			console.log(user);
 
 			// No user found
 			if (!user) return callback(null, false);
 			// Simple example with no scope
-			callback(null, user, { scope: '*' });
+			updateUserGroupsByKey(user._id, <string>user.jiraKey).then(() => {
+				findUserByKey(<string>user.jiraKey).then((jiraUser) => {
+					callback(null, { ...user._doc, jiraUsername: jiraUser.name }, { scope: '*' });
+				});
+			});
 		});
 	});
 }));
@@ -185,7 +187,7 @@ oauth2Server.exchange(oauth2orize.exchange.code((oauthClient, code, redirectUri,
 	Code.findOne({ token: code }, (err: any, authCode: CodeType) => {
 		if (err) return callback(err);
 		// eslint-disable-next-line max-len
-		if (!authCode || oauthClient.clientId !== authCode._id || redirectUri !== authCode.redirectUri) return callback(null, false);
+		if (!authCode || oauthClient._id !== authCode.clientId || redirectUri !== authCode.redirectUri) return callback(null, false);
 
 		// @ts-expect-error Callback is not options
 		Code.findByIdAndDelete(authCode._id, (err2: any) => {
@@ -199,17 +201,11 @@ oauth2Server.exchange(oauth2orize.exchange.code((oauthClient, code, redirectUri,
 
 			token.save((err3) => {
 				if (err3) return callback(err3);
-				// @ts-expect-error Token not assignable to specific types
-				callback(null, token);
+				callback(null, token.token);
 			});
 		});
 	});
 }));
-
-app.use((req, res, next) => {
-	console.log(req.originalUrl);
-	next();
-});
 
 // Routes
 app.get('/auth/fail', (req, res) => {
@@ -265,9 +261,7 @@ app.get('/oauth2/authorize',
 	}),
 	oauth2Server.decision());
 
-app.get('/api/userinfo', (req, res, next) => { console.log('Called'); next(); }, passport.authenticate('bearer', { session: false }), (req, res) => {
-	console.log('Auth passed');
-	console.log(req.user);
+app.get('/api/userinfo', passport.authenticate('bearer', { session: false }), (req, res) => {
 	res.status(200).json(req.user);
 });
 
@@ -287,14 +281,43 @@ app.delete('/admin/application', (req, res) => {
 	if (req.get('Authorization') !== config.adminToken) res.status(403).end();
 	Application.findByIdAndDelete(req.body.id).exec((err, application) => {
 		if (err) res.status(500).send(err);
+		if (!application) res.status(404).end();
 		else res.status(200).json(application);
 	});
 });
 
 app.get('/admin/application', (req, res) => {
 	if (req.get('Authorization') !== config.adminToken) res.status(403).end();
-	Application.findById(req.body.id).exec((err, application) => {
+	Application.findById(req.query.id).exec((err, application) => {
 		if (err) res.status(500).send(err);
+		if (!application) res.status(404).end();
 		else res.status(200).json(application);
+	});
+});
+
+app.post('/admin/groupLink', (req, res) => {
+	if (req.get('Authorization') !== config.adminToken) res.status(403).end();
+	const link = new GroupLink(req.body);
+	link.save((err) => {
+		if (err) res.status(500).send(err);
+		else res.status(201).json(link);
+	});
+});
+
+app.delete('/admin/groupLink', (req, res) => {
+	if (req.get('Authorization') !== config.adminToken) res.status(403).end();
+	GroupLink.findByIdAndDelete(req.body.id).exec((err, link) => {
+		if (err) res.status(500).send(err);
+		if (!link) res.status(404).end();
+		else res.status(200).json(link);
+	});
+});
+
+app.get('/admin/groupLink', (req, res) => {
+	if (req.get('Authorization') !== config.adminToken) res.status(403).end();
+	GroupLink.findById(req.query.id).exec((err, link) => {
+		if (err) res.status(500).send(err);
+		if (!link) res.status(404).end();
+		else res.status(200).json(link);
 	});
 });

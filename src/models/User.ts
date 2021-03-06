@@ -8,6 +8,7 @@ const UserSchema: Schema = new mongoose.Schema({
 });
 
 export interface Type extends Document {
+	_doc: object;
 	_id: string,
 	jiraKey?: string,
 	username: string,

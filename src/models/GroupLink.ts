@@ -8,7 +8,7 @@ const GroupLinkSchema: Schema = new mongoose.Schema({
 
 export interface Type extends Document {
 	_id: string,
-	jiraName?: string,
+	jiraName: string,
 	baseRole: boolean
 }
 
