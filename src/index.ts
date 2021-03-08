@@ -32,8 +32,6 @@ const config = require('../config.json');
 // eslint-disable-next-line import/prefer-default-export
 export const client = new Discord.Client();
 
-// TODO: Set up Sentry and Winston to Loki logging, see Suisei's Mic source code
-
 // Init
 const oauth2Server = oauth2orize.createServer();
 
@@ -83,45 +81,60 @@ passport.deserializeUser((id, done) => {
 });
 
 // eslint-disable-next-line max-len
-passport.use(new DiscordStrategy(config.discord, (accessToken: string, refreshToken: string, profile: DiscordProfile, cb: DiscordVerifyCallback<UserType>) => {
-	User.findById(profile.id, async (err: any, doc: UserType) => {
-		if (err) throw new Error(err);
-		if (!doc) {
-			const newUser = new User({
-				_id: profile.id,
-				username: profile.username,
-				// @ts-expect-error Possible undefined
-				email: profile.emails[0].value,
-			});
-			newUser.save((err2: any) => {
-				if (err2) throw new Error(err2);
-			});
-			// @ts-expect-error Possible undefined
-			updateUserGroups(profile.id, profile.username, profile.emails[0].value).then(() => {
-				User.findById(profile.id, (err3: any, user: UserType) => {
-					if (err3) throw new Error(err3);
-					cb(null, user);
-				}).catch((err4) => {
-					console.log(err4);
+passport.use(new DiscordStrategy(config.discord, async (accessToken: string, refreshToken: string, profile: DiscordProfile, cb: DiscordVerifyCallback<UserType>) => {
+	const guild = await client.guilds.fetch(config.discordServerId).catch((err) => {
+		throw new Error(err);
+	});
+
+	// @ts-expect-error Not a valid Error type
+	const member = await guild?.members.fetch(profile.id).catch(() => cb("You don't have the required permissions to login"));
+
+	const baseRole = await GroupLink.findOne({ baseRole: true }).lean().exec().catch((err) => {
+		throw new Error(err);
+	});
+
+	// @ts-expect-error baseRole possibly null
+	if (!member?.user || !member.roles.cache.has(baseRole?._id)) cb("You don't have the required permissions to login");
+	else {
+		User.findById(profile.id, async (err: any, doc: UserType) => {
+			if (err) throw new Error(err);
+			if (!doc) {
+				const newUser = new User({
+					_id: profile.id,
+					username: profile.username,
+					// @ts-expect-error Possible undefined
+					email: profile.emails[0].value,
 				});
-			});
-		} else {
-			if (!doc.jiraKey) {
+				newUser.save((err2: any) => {
+					if (err2) throw new Error(err2);
+				});
 				// @ts-expect-error Possible undefined
 				updateUserGroups(profile.id, profile.username, profile.emails[0].value).then(() => {
 					User.findById(profile.id, (err3: any, user: UserType) => {
 						if (err3) throw new Error(err3);
 						cb(null, user);
-					}).catch((err2) => {
-						console.log(err2);
+					}).catch((err4) => {
+						console.log(err4);
 					});
 				});
+			} else {
+				if (!doc.jiraKey) {
+					// @ts-expect-error Possible undefined
+					updateUserGroups(profile.id, profile.username, profile.emails[0].value).then(() => {
+						User.findById(profile.id, (err3: any, user: UserType) => {
+							if (err3) throw new Error(err3);
+							cb(null, user);
+						}).catch((err2) => {
+							console.log(err2);
+						});
+					});
+				}
+				updateUserGroupsByKey(profile.id, <string>doc.jiraKey).then(() => {
+					cb(null, doc);
+				});
 			}
-			updateUserGroupsByKey(profile.id, <string>doc.jiraKey).then(() => {
-				cb(null, doc);
-			});
-		}
-	});
+		});
+	}
 }));
 
 passport.use(new BearerStrategy((accessToken, callback) => {
@@ -209,7 +222,12 @@ oauth2Server.exchange(oauth2orize.exchange.code((oauthClient, code, redirectUri,
 
 // Routes
 app.get('/auth/fail', (req, res) => {
-	res.status(500).send('Sign in failed');
+	res.status(500).send("Sign in failed, you possibly don't have the required permissions to login");
+});
+
+app.get('/auth/logout', (req, res) => {
+	req.logout();
+	res.status(200).send('Signed out');
 });
 
 app.get('/auth/discord', passport.authenticate('discord'));
