@@ -37,7 +37,6 @@ const config = require('../config.json');
 // Pre-init
 // eslint-disable-next-line import/prefer-default-export
 exports.client = new discord_js_1.default.Client();
-// TODO: Set up Sentry and Winston to Loki logging, see Suisei's Mic source code
 // Init
 const oauth2Server = oauth2orize_1.default.createServer();
 const app = express_1.default();
@@ -78,51 +77,64 @@ passport_1.default.deserializeUser((id, done) => {
     User_1.default.findById(id, (error, user) => done(error, user));
 });
 // eslint-disable-next-line max-len
-passport_1.default.use(new passport_discord_1.Strategy(config.discord, (accessToken, refreshToken, profile, cb) => {
-    User_1.default.findById(profile.id, (err, doc) => __awaiter(void 0, void 0, void 0, function* () {
-        if (err)
-            throw new Error(err);
-        if (!doc) {
-            const newUser = new User_1.default({
-                _id: profile.id,
-                username: profile.username,
-                // @ts-expect-error Possible undefined
-                email: profile.emails[0].value,
-            });
-            newUser.save((err2) => {
-                if (err2)
-                    throw new Error(err2);
-            });
-            // @ts-expect-error Possible undefined
-            jira_1.updateUserGroups(profile.id, profile.username, profile.emails[0].value).then(() => {
-                User_1.default.findById(profile.id, (err3, user) => {
-                    if (err3)
-                        throw new Error(err3);
-                    cb(null, user);
-                }).catch((err4) => {
-                    console.log(err4);
+passport_1.default.use(new passport_discord_1.Strategy(config.discord, (accessToken, refreshToken, profile, cb) => __awaiter(void 0, void 0, void 0, function* () {
+    const guild = yield exports.client.guilds.fetch(config.discordServerId).catch((err) => {
+        throw new Error(err);
+    });
+    // @ts-expect-error Not a valid Error type
+    const member = yield (guild === null || guild === void 0 ? void 0 : guild.members.fetch(profile.id).catch(() => cb("You don't have the required permissions to login")));
+    const baseRole = yield GroupLink_1.default.findOne({ baseRole: true }).lean().exec().catch((err) => {
+        throw new Error(err);
+    });
+    // @ts-expect-error baseRole possibly null
+    if (!(member === null || member === void 0 ? void 0 : member.user) || !member.roles.cache.has(baseRole === null || baseRole === void 0 ? void 0 : baseRole._id))
+        cb("You don't have the required permissions to login");
+    else {
+        User_1.default.findById(profile.id, (err, doc) => __awaiter(void 0, void 0, void 0, function* () {
+            if (err)
+                throw new Error(err);
+            if (!doc) {
+                const newUser = new User_1.default({
+                    _id: profile.id,
+                    username: profile.username,
+                    // @ts-expect-error Possible undefined
+                    email: profile.emails[0].value,
                 });
-            });
-        }
-        else {
-            if (!doc.jiraKey) {
+                newUser.save((err2) => {
+                    if (err2)
+                        throw new Error(err2);
+                });
                 // @ts-expect-error Possible undefined
                 jira_1.updateUserGroups(profile.id, profile.username, profile.emails[0].value).then(() => {
                     User_1.default.findById(profile.id, (err3, user) => {
                         if (err3)
                             throw new Error(err3);
                         cb(null, user);
-                    }).catch((err2) => {
-                        console.log(err2);
+                    }).catch((err4) => {
+                        console.log(err4);
                     });
                 });
             }
-            jira_1.updateUserGroupsByKey(profile.id, doc.jiraKey).then(() => {
-                cb(null, doc);
-            });
-        }
-    }));
-}));
+            else {
+                if (!doc.jiraKey) {
+                    // @ts-expect-error Possible undefined
+                    jira_1.updateUserGroups(profile.id, profile.username, profile.emails[0].value).then(() => {
+                        User_1.default.findById(profile.id, (err3, user) => {
+                            if (err3)
+                                throw new Error(err3);
+                            cb(null, user);
+                        }).catch((err2) => {
+                            console.log(err2);
+                        });
+                    });
+                }
+                jira_1.updateUserGroupsByKey(profile.id, doc.jiraKey).then(() => {
+                    cb(null, doc);
+                });
+            }
+        }));
+    }
+})));
 passport_1.default.use(new passport_http_bearer_1.Strategy((accessToken, callback) => {
     AccessToken_1.default.findOne({ token: accessToken }, (err, token) => {
         if (err)
@@ -156,8 +168,10 @@ passport_1.default.use('client-basic', new passport_http_1.BasicStrategy((client
 }));
 // Discord
 exports.client.on('ready', () => {
+    var _a;
     // eslint-disable-next-line no-console
     console.log('Discord client online');
+    (_a = exports.client.user) === null || _a === void 0 ? void 0 : _a.setStatus('invisible');
 });
 exports.client.login(config.discordToken);
 // OAuth2.0
@@ -205,7 +219,11 @@ oauth2Server.exchange(oauth2orize_1.default.exchange.code((oauthClient, code, re
 }));
 // Routes
 app.get('/auth/fail', (req, res) => {
-    res.status(500).send('Sign in failed');
+    res.status(500).send("Sign in failed, you possibly don't have the required permissions to login");
+});
+app.get('/auth/logout', (req, res) => {
+    req.logout();
+    res.status(200).send('Signed out');
 });
 app.get('/auth/discord', passport_1.default.authenticate('discord'));
 app.get('/auth/discord/callback', passport_1.default.authenticate('discord', {
