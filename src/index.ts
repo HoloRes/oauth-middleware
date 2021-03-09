@@ -172,7 +172,8 @@ passport.use('client-basic', new BasicStrategy((clientId, clientSecret, callback
 client.on('ready', () => {
 	// eslint-disable-next-line no-console
 	console.log('Discord client online');
-	client.user?.setStatus('invisible');
+	// @ts-expect-error User possibly undefined
+	client.user.setStatus('invisible');
 });
 client.login(config.discordToken);
 

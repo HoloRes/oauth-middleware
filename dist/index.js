@@ -168,10 +168,10 @@ passport_1.default.use('client-basic', new passport_http_1.BasicStrategy((client
 }));
 // Discord
 exports.client.on('ready', () => {
-    var _a;
     // eslint-disable-next-line no-console
     console.log('Discord client online');
-    (_a = exports.client.user) === null || _a === void 0 ? void 0 : _a.setStatus('invisible');
+    // @ts-expect-error User possibly undefined
+    exports.client.user.setStatus('invisible');
 });
 exports.client.login(config.discordToken);
 // OAuth2.0
