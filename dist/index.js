@@ -97,8 +97,6 @@ passport_1.default.use(new passport_discord_1.Strategy(config.discord, (accessTo
                 const newUser = new User_1.default({
                     _id: profile.id,
                     username: profile.username,
-                    // @ts-expect-error Possible undefined
-                    email: profile.emails[0].value,
                 });
                 newUser.save((err2) => {
                     if (err2)

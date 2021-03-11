@@ -102,8 +102,6 @@ passport.use(new DiscordStrategy(config.discord, async (accessToken: string, ref
 				const newUser = new User({
 					_id: profile.id,
 					username: profile.username,
-					// @ts-expect-error Possible undefined
-					email: profile.emails[0].value,
 				});
 				newUser.save((err2: any) => {
 					if (err2) throw new Error(err2);
