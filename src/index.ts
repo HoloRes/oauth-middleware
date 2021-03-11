@@ -287,6 +287,30 @@ app.get('/api/userinfo', passport.authenticate('bearer', { session: false }), (r
 	res.status(200).json(req.user);
 });
 
+app.get('/api/userByJiraKey', passport.authenticate('client-basic', { session: false }), (req, res) => {
+	// @ts-expect-error Not assignable to
+	User.findOne({ jiraKey: req.query.key }).lean()
+		.exec((err, doc) => {
+			if (err) return res.status(500).end();
+			res.status(200).json(doc);
+		});
+});
+
+app.get('/api/userByDiscordId', passport.authenticate('client-basic', { session: false }), (req, res) => {
+	User.findById(req.query.id).lean()
+		.exec((err, doc) => {
+			if (err) return res.status(500).end();
+			// @ts-expect-error doc possibly undefined
+			findUserByKey(doc.jiraKey)
+				.then((jiraUser) => {
+					res.status(200).json({
+						...doc,
+						username: jiraUser.name,
+					});
+				});
+		});
+});
+
 app.post('/admin/application', (req, res) => {
 	if (req.get('Authorization') !== config.adminToken) res.status(403).end();
 	const application = new Application({
