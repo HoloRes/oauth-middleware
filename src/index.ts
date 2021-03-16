@@ -14,6 +14,8 @@ import mongoose from 'mongoose';
 import oauth2orize from 'oauth2orize';
 
 // Models
+import intformat from 'biguint-format';
+import FlakeId from 'flake-idgen';
 import User, { Type as UserType } from './models/User';
 import GroupLink from './models/GroupLink';
 import Application, { Type as ApplicationType } from './models/Application';
@@ -24,6 +26,8 @@ import AccessToken, { Type as AccessTokenType } from './models/AccessToken';
 import { updateUserGroups, updateUserGroupsByKey, findUserByKey } from './jira';
 import { uid } from './util';
 
+// Init
+
 const MongoDBStore = require('connect-mongodb-session')(session);
 
 const config = require('../config.json');
@@ -31,8 +35,7 @@ const config = require('../config.json');
 // Pre-init
 // eslint-disable-next-line import/prefer-default-export
 export const client = new Discord.Client();
-
-// Init
+const flakeIdGen = new FlakeId();
 const oauth2Server = oauth2orize.createServer();
 
 const app = express();
@@ -312,6 +315,7 @@ app.get('/api/userByDiscordId', passport.authenticate('client-basic', { session:
 app.post('/admin/application', (req, res) => {
 	if (req.get('Authorization') !== config.adminToken) res.status(403).end();
 	const application = new Application({
+		_id: intformat(flakeIdGen.next(), 'dec').toString(),
 		...req.body,
 		clientSecret: uid(16),
 	});

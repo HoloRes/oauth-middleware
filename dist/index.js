@@ -24,6 +24,8 @@ const discord_js_1 = __importDefault(require("discord.js"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const oauth2orize_1 = __importDefault(require("oauth2orize"));
 // Models
+const biguint_format_1 = __importDefault(require("biguint-format"));
+const flake_idgen_1 = __importDefault(require("flake-idgen"));
 const User_1 = __importDefault(require("./models/User"));
 const GroupLink_1 = __importDefault(require("./models/GroupLink"));
 const Application_1 = __importDefault(require("./models/Application"));
@@ -32,12 +34,13 @@ const AccessToken_1 = __importDefault(require("./models/AccessToken"));
 // Local files
 const jira_1 = require("./jira");
 const util_1 = require("./util");
+// Init
 const MongoDBStore = require('connect-mongodb-session')(express_session_1.default);
 const config = require('../config.json');
 // Pre-init
 // eslint-disable-next-line import/prefer-default-export
 exports.client = new discord_js_1.default.Client();
-// Init
+const flakeIdGen = new flake_idgen_1.default();
 const oauth2Server = oauth2orize_1.default.createServer();
 const app = express_1.default();
 app.use(express_1.default.urlencoded());
@@ -303,7 +306,7 @@ app.get('/api/userByDiscordId', passport_1.default.authenticate('client-basic', 
 app.post('/admin/application', (req, res) => {
     if (req.get('Authorization') !== config.adminToken)
         res.status(403).end();
-    const application = new Application_1.default(Object.assign(Object.assign({}, req.body), { clientSecret: util_1.uid(16) }));
+    const application = new Application_1.default(Object.assign(Object.assign({ _id: biguint_format_1.default(flakeIdGen.next(), 'dec').toString() }, req.body), { clientSecret: util_1.uid(16) }));
     application.save((err) => {
         if (err)
             res.status(500).send(err);
