@@ -26,13 +26,14 @@ import AccessToken, { Type as AccessTokenType } from './models/AccessToken';
 import { updateUserGroups, updateUserGroupsByKey, findUserByKey } from './jira';
 import { uid } from './util';
 
-// Init
+// Routers
+import holoresRouter from './holores';
+
+import * as config from '../config.json';
 
 const MongoDBStore = require('connect-mongodb-session')(session);
 
-const config = require('../config.json');
-
-// Pre-init
+// Init
 // eslint-disable-next-line import/prefer-default-export
 export const client = new Discord.Client();
 const flakeIdGen = new FlakeId();
@@ -168,6 +169,8 @@ passport.use('client-basic', new BasicStrategy((clientId, clientSecret, callback
 		return callback(null, oauthClient);
 	});
 }));
+
+app.use('/holores', holoresRouter);
 
 // Discord
 client.on('ready', () => {

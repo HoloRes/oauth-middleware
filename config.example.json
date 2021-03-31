@@ -18,6 +18,12 @@
     "password": "",
     "database": ""
   },
+  "holores": {
+    "serverId": "",
+    "adminRoleId": "",
+    "artistRoleId": "",
+    "token": ""
+  },
   "discordServerId": "",
   "discordToken": "",
   "adminToken": ""
