@@ -84,7 +84,7 @@ const findUserByKey = (key) => new Promise((resolve, reject) => {
     });
 });
 exports.findUserByKey = findUserByKey;
-function createEmail(member) {
+function createEmail(member, user) {
     const generatedPassword = generate_password_1.default.generate({
         length: 14,
         numbers: true,
@@ -98,12 +98,19 @@ function createEmail(member) {
         password2: generatedPassword,
         quota: 3072,
         force_pw_update: 1,
+    }, {
+        headers: {
+            'X-API-Key': config.mailcow.apiKey,
+        },
     }).then(() => {
+        // eslint-disable-next-line no-param-reassign
+        user.mailcowEmail = `${member.user.username}@${config.mailcow.tlDomain}`;
+        user.save();
         member.user.send(`Email has been automatically created:
-		Email: \`${member.user.username}@${config.mailcow.tlDomain}\`
-		Password: \`${generatedPassword}\`
-		Please immediately change your password here: ${config.mailcow.url}
-		If you want your email to redirect or if you have any issues, file an ticket here: https://holores.atlassian.net/servicedesk/customer/portal/3
+Email: \`${member.user.username}@${config.mailcow.tlDomain}\`
+Password: \`${generatedPassword}\`
+Please immediately change your password here: ${config.mailcow.url}
+If you want your email to redirect or if you have any issues, file an ticket here: https://holores.atlassian.net/servicedesk/customer/portal/3
 		`);
     }).catch(console.error);
 }
@@ -113,13 +120,14 @@ const updateUserGroups = (discordId, username, email) => new Promise((resolve, r
         const guild = yield index_1.client.guilds.fetch(config.discordServerId).catch(reject);
         // @ts-expect-error guild.members possibly undefined
         const member = yield (guild === null || guild === void 0 ? void 0 : guild.members.fetch(discordId).catch(reject));
-        createEmail(member);
         // @ts-expect-error Possible void
         const groupLinks = yield GroupLink_1.default.find({}).lean().exec()
             .catch(reject);
         User_1.default.findById(discordId, (err, doc) => {
             if (err)
                 return;
+            if (doc && !doc.mailcowEmail)
+                createEmail(member, doc);
             if (doc && !doc.jiraKey) {
                 // eslint-disable-next-line no-param-reassign
                 doc.jiraKey = user.key;
@@ -177,7 +185,12 @@ const updateUserGroupsByKey = (discordId, key) => new Promise((resolve, reject) 
         const guild = yield index_1.client.guilds.fetch(config.discordServerId).catch(reject);
         // @ts-expect-error guild.members possibly undefined
         const member = yield (guild === null || guild === void 0 ? void 0 : guild.members.fetch(discordId).catch(reject));
-        createEmail(member);
+        User_1.default.findById(discordId, (err, doc) => {
+            if (err)
+                return;
+            if (doc && !doc.mailcowEmail)
+                createEmail(member, doc);
+        });
         // @ts-expect-error groupLinks possible void
         const groupLinks = yield GroupLink_1.default.find({}).lean().exec()
             .catch(reject);
