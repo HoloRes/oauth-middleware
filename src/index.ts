@@ -29,7 +29,7 @@ import { uid } from './util';
 // Routers
 import holoresRouter from './holores';
 
-import * as config from '../config.json';
+const config = require('../config.json');
 
 const MongoDBStore = require('connect-mongodb-session')(session);
 
