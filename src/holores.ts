@@ -1,7 +1,8 @@
 // Imports
 import { Router } from 'express';
 import { client } from './index';
-import * as config from '../config.json';
+
+const config = require('../config.json');
 
 // Init
 const router = Router();
