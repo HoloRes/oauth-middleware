@@ -15,6 +15,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateUserGroupsByKey = exports.updateUserGroups = exports.findUserByKey = void 0;
 // Imports
 const axios_1 = __importDefault(require("axios"));
+// Local files
+const generate_password_1 = __importDefault(require("generate-password"));
 const index_1 = require("./index");
 const GroupLink_1 = __importDefault(require("./models/GroupLink"));
 const User_1 = __importDefault(require("./models/User"));
@@ -82,12 +84,36 @@ const findUserByKey = (key) => new Promise((resolve, reject) => {
     });
 });
 exports.findUserByKey = findUserByKey;
+function createEmail(member) {
+    const generatedPassword = generate_password_1.default.generate({
+        length: 14,
+        numbers: true,
+        strict: true,
+    });
+    axios_1.default.post(`${config.mailcow.url}/api/v1/add/mailbox`, {
+        active: 1,
+        domain: config.mailcow.tlDomain,
+        local_part: member.user.username,
+        password: generatedPassword,
+        password2: generatedPassword,
+        quota: 3072,
+        force_pw_update: 1,
+    }).then(() => {
+        member.user.send(`Email has been automatically created:
+		Email: \`${member.user.username}@${config.mailcow.tlDomain}\`
+		Password: \`${generatedPassword}\`
+		Please immediately change your password here: ${config.mailcow.url}
+		If you want your email to redirect or if you have any issues, file an ticket here: https://holores.atlassian.net/servicedesk/customer/portal/3
+		`);
+    }).catch(console.error);
+}
 // eslint-disable-next-line max-len
 const updateUserGroups = (discordId, username, email) => new Promise((resolve, reject) => {
     findUser(username, email, discordId).then((user) => __awaiter(void 0, void 0, void 0, function* () {
         const guild = yield index_1.client.guilds.fetch(config.discordServerId).catch(reject);
         // @ts-expect-error guild.members possibly undefined
         const member = yield (guild === null || guild === void 0 ? void 0 : guild.members.fetch(discordId).catch(reject));
+        createEmail(member);
         // @ts-expect-error Possible void
         const groupLinks = yield GroupLink_1.default.find({}).lean().exec()
             .catch(reject);
@@ -151,6 +177,7 @@ const updateUserGroupsByKey = (discordId, key) => new Promise((resolve, reject) 
         const guild = yield index_1.client.guilds.fetch(config.discordServerId).catch(reject);
         // @ts-expect-error guild.members possibly undefined
         const member = yield (guild === null || guild === void 0 ? void 0 : guild.members.fetch(discordId).catch(reject));
+        createEmail(member);
         // @ts-expect-error groupLinks possible void
         const groupLinks = yield GroupLink_1.default.find({}).lean().exec()
             .catch(reject);

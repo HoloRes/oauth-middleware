@@ -170,7 +170,7 @@ passport.use('client-basic', new BasicStrategy((clientId, clientSecret, callback
 	});
 }));
 
-app.use('/holores', holoresRouter);
+// app.use('/holores', holoresRouter);
 
 // Discord
 client.on('ready', () => {

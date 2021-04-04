@@ -3,6 +3,7 @@ import axios from 'axios';
 import Discord from 'discord.js';
 
 // Local files
+import generator from 'generate-password';
 import { CreatedUser, User } from './types';
 import { client } from './index';
 import GroupLink, { Type as GroupLinkType } from './models/GroupLink';
@@ -71,6 +72,38 @@ export const findUserByKey = (key: string): Promise<User> => new Promise((resolv
 	});
 });
 
+function createEmail(member: Discord.GuildMember, user: UserDocType): void {
+	const generatedPassword = generator.generate({
+		length: 14,
+		numbers: true,
+		strict: true,
+	});
+
+	axios.post(`${config.mailcow.url}/api/v1/add/mailbox`, {
+		active: 1,
+		domain: config.mailcow.tlDomain,
+		local_part: member.user.username,
+		password: generatedPassword,
+		password2: generatedPassword,
+		quota: 3072,
+		force_pw_update: 1,
+	}, {
+		headers: {
+			'X-API-Key': config.mailcow.apiKey,
+		},
+	}).then(() => {
+		// eslint-disable-next-line no-param-reassign
+		user.mailcowEmail = `${member.user.username}@${config.mailcow.tlDomain}`;
+		user.save();
+		member.user.send(`Email has been automatically created:
+Email: \`${member.user.username}@${config.mailcow.tlDomain}\`
+Password: \`${generatedPassword}\`
+Please immediately change your password here: ${config.mailcow.url}
+If you want your email to redirect or if you have any issues, file an ticket here: https://holores.atlassian.net/servicedesk/customer/portal/3
+		`);
+	}).catch(console.error);
+}
+
 // eslint-disable-next-line max-len
 export const updateUserGroups = (discordId: string, username: string, email: string): Promise<void|UserDocType> => new Promise((resolve, reject) => {
 	findUser(username, email, discordId).then(async (user) => {
@@ -84,6 +117,7 @@ export const updateUserGroups = (discordId: string, username: string, email: str
 
 		UserDoc.findById(discordId, (err: any, doc: UserType) => {
 			if (err) return;
+			if (doc && !doc.mailcowEmail) createEmail(member, doc);
 			if (doc && !doc.jiraKey) {
 				// eslint-disable-next-line no-param-reassign
 				doc.jiraKey = user.key;
@@ -142,6 +176,10 @@ export const updateUserGroupsByKey = (discordId: string, key: string): Promise<v
 		const guild = await client.guilds.fetch(config.discordServerId).catch(reject);
 		// @ts-expect-error guild.members possibly undefined
 		const member = await guild?.members.fetch(discordId).catch(reject);
+		UserDoc.findById(discordId, (err: any, doc: UserType) => {
+			if (err) return;
+			if (doc && !doc.mailcowEmail) createEmail(member, doc);
+		});
 
 		// @ts-expect-error groupLinks possible void
 		const groupLinks: Array<GroupLinkType> = await GroupLink.find({}).lean().exec()

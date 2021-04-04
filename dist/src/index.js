@@ -53,8 +53,6 @@ const AccessToken_1 = __importDefault(require("./models/AccessToken"));
 // Local files
 const jira_1 = require("./jira");
 const util_1 = require("./util");
-// Routers
-const holores_1 = __importDefault(require("./holores"));
 const config = __importStar(require("../config.json"));
 const MongoDBStore = require('connect-mongodb-session')(express_session_1.default);
 // Init
@@ -187,7 +185,7 @@ passport_1.default.use('client-basic', new passport_http_1.BasicStrategy((client
         return callback(null, oauthClient);
     });
 }));
-app.use('/holores', holores_1.default);
+// app.use('/holores', holoresRouter);
 // Discord
 exports.client.on('ready', () => {
     // eslint-disable-next-line no-console

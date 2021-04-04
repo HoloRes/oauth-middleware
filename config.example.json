@@ -24,6 +24,11 @@
     "artistRoleId": "",
     "token": ""
   },
+  "mailcow": {
+    "apiKey": "",
+    "url": "",
+    "tlDomain": ""
+  },
   "discordServerId": "",
   "discordToken": "",
   "adminToken": ""
