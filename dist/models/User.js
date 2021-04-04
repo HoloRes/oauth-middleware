@@ -8,6 +8,5 @@ const UserSchema = new mongoose_1.default.Schema({
     _id: { type: String, required: true },
     jiraKey: { type: String },
     mailcowEmail: { type: String },
-    email: { type: String, required: true },
 });
 exports.default = mongoose_1.default.model('User', UserSchema, 'users');
