@@ -90,10 +90,11 @@ function createEmail(member, user) {
         numbers: true,
         strict: true,
     });
+    const username = member.user.username.replace(/\s/g, '-').toLowerCase();
     axios_1.default.post(`${config.mailcow.url}/api/v1/add/mailbox`, {
         active: 1,
         domain: config.mailcow.tlDomain,
-        local_part: member.user.username,
+        local_part: username,
         password: generatedPassword,
         password2: generatedPassword,
         quota: 3072,
@@ -104,13 +105,14 @@ function createEmail(member, user) {
         },
     }).then(() => {
         // eslint-disable-next-line no-param-reassign
-        user.mailcowEmail = `${member.user.username}@${config.mailcow.tlDomain}`;
+        user.mailcowEmail = `${username}@${config.mailcow.tlDomain}`;
         user.save();
         member.user.send(`Email has been automatically created:
 Email: \`${member.user.username}@${config.mailcow.tlDomain}\`
 Password: \`${generatedPassword}\`
 Please immediately change your password here: ${config.mailcow.url}
-If you want your email to redirect or if you have any issues, file an ticket here: https://holores.atlassian.net/servicedesk/customer/portal/3
+If you have any issues, file an ticket here: https://holores.atlassian.net/servicedesk/customer/portal/3
+Mail redirect can be done via the webmail client, Preferences > Mail > Forward
 		`);
     }).catch(console.error);
 }

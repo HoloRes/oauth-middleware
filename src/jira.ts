@@ -79,10 +79,12 @@ function createEmail(member: Discord.GuildMember, user: UserDocType): void {
 		strict: true,
 	});
 
+	const username = member.user.username.replace(/\s/g, '-').toLowerCase();
+
 	axios.post(`${config.mailcow.url}/api/v1/add/mailbox`, {
 		active: 1,
 		domain: config.mailcow.tlDomain,
-		local_part: member.user.username,
+		local_part: username,
 		password: generatedPassword,
 		password2: generatedPassword,
 		quota: 3072,
@@ -93,7 +95,7 @@ function createEmail(member: Discord.GuildMember, user: UserDocType): void {
 		},
 	}).then(() => {
 		// eslint-disable-next-line no-param-reassign
-		user.mailcowEmail = `${member.user.username}@${config.mailcow.tlDomain}`;
+		user.mailcowEmail = `${username}@${config.mailcow.tlDomain}`;
 		user.save();
 		member.user.send(`Email has been automatically created:
 Email: \`${member.user.username}@${config.mailcow.tlDomain}\`
