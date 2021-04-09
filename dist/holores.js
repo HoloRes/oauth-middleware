@@ -41,3 +41,4 @@ router.get('/artistCheck', (req, res) => __awaiter(void 0, void 0, void 0, funct
         .catch(() => res.status(400).end());
     res.status(200).send(member.roles.cache.has(config.holores.artistRoleId));
 }));
+// TODO: Add route for mail generation

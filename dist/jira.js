@@ -23,6 +23,7 @@ const User_1 = __importDefault(require("./models/User"));
 const config = require('../config.json');
 // Variables
 const url = `${config.jira.url}/rest/api/latest`;
+const emailRegex = /^([0-z]|-)+$/i;
 // eslint-disable-next-line max-len
 const createUser = (username, email, discordId) => new Promise((resolve, reject) => {
     axios_1.default.post(`${url}/user`, {
@@ -90,31 +91,61 @@ function createEmail(member, user) {
         numbers: true,
         strict: true,
     });
-    const username = member.user.username.replace(/\s/g, '-').toLowerCase();
-    axios_1.default.post(`${config.mailcow.url}/api/v1/add/mailbox`, {
-        active: 1,
-        domain: config.mailcow.tlDomain,
-        local_part: username,
-        password: generatedPassword,
-        password2: generatedPassword,
-        quota: 3072,
-        force_pw_update: 1,
-    }, {
-        headers: {
-            'X-API-Key': config.mailcow.apiKey,
-        },
-    }).then(() => {
-        // eslint-disable-next-line no-param-reassign
-        user.mailcowEmail = `${username}@${config.mailcow.tlDomain}`;
-        user.save();
-        member.user.send(`Email has been automatically created:
+    let username = member.user.username.replace(/\s/g, '-').toLowerCase();
+    let valid = emailRegex.test(username);
+    if (!valid) {
+        member.user.send('Your Discord username is not a valid for an email address. Please respond in 1 minute with a proper alphanumerical username.')
+            .then((msg) => {
+            // eslint-disable-next-line max-len
+            const collector = msg.channel.createMessageCollector((message) => message.author.id === member.user.id, { time: 60 * 1000 });
+            collector.on('collect', (message) => {
+                valid = emailRegex.test(message.content.replace(/\s/g, '-').toLowerCase());
+                if (!valid)
+                    member.user.send('Invalid username');
+                else {
+                    username = message.content.replace(/\s/g, '-').toLowerCase();
+                    // eslint-disable-next-line no-use-before-define
+                    createEmailRequest();
+                    collector.stop();
+                }
+            });
+            collector.on('end', (collected) => {
+                if (collected.size === 0 || !valid)
+                    member.user.send('No valid username recorded, please put in a request for an email here: https://holores.atlassian.net/servicedesk/customer/portal/3, or login once again to restart the process. ');
+            });
+        });
+        // eslint-disable-next-line no-use-before-define
+    }
+    else
+        createEmailRequest();
+    function createEmailRequest() {
+        axios_1.default.post(`${config.mailcow.url}/api/v1/add/mailbox`, {
+            active: 1,
+            domain: config.mailcow.tlDomain,
+            local_part: username,
+            password: generatedPassword,
+            password2: generatedPassword,
+            quota: 3072,
+            force_pw_update: 1,
+        }, {
+            headers: {
+                'X-API-Key': config.mailcow.apiKey,
+            },
+        })
+            .then(() => {
+            // eslint-disable-next-line no-param-reassign
+            user.mailcowEmail = `${username}@${config.mailcow.tlDomain}`;
+            user.save();
+            member.user.send(`Email has been automatically created:
 Email: \`${member.user.username}@${config.mailcow.tlDomain}\`
 Password: \`${generatedPassword}\`
 Please immediately change your password here: ${config.mailcow.url}
 If you have any issues, file an ticket here: https://holores.atlassian.net/servicedesk/customer/portal/3
 Mail redirect can be done via the webmail client, Preferences > Mail > Forward
 		`);
-    }).catch(console.error);
+        })
+            .catch(console.error);
+    }
 }
 // eslint-disable-next-line max-len
 const updateUserGroups = (discordId, username, email) => new Promise((resolve, reject) => {

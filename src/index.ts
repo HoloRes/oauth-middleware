@@ -155,7 +155,12 @@ passport.use(new BearerStrategy((accessToken, callback) => {
 			// Simple example with no scope
 			updateUserGroupsByKey(user._id, <string>user.jiraKey).then(() => {
 				findUserByKey(<string>user.jiraKey).then((jiraUser) => {
-					callback(null, { ...user._doc, jiraUsername: jiraUser.name }, { scope: '*' });
+					callback(null, {
+						...user._doc,
+						jiraUsername: jiraUser.name,
+						username: jiraUser.name,
+						email: user.mailcowEmail,
+					}, { scope: '*' });
 				});
 			});
 		});

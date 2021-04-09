@@ -20,6 +20,7 @@ const express_session_1 = __importDefault(require("express-session"));
 const passport_discord_1 = require("@oauth-everything/passport-discord");
 const passport_http_bearer_1 = require("passport-http-bearer");
 const passport_http_1 = require("passport-http");
+const passport_oauth2_client_password_1 = require("passport-oauth2-client-password");
 const discord_js_1 = __importDefault(require("discord.js"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const oauth2orize_1 = __importDefault(require("oauth2orize"));
@@ -151,13 +152,22 @@ passport_1.default.use(new passport_http_bearer_1.Strategy((accessToken, callbac
             // Simple example with no scope
             jira_1.updateUserGroupsByKey(user._id, user.jiraKey).then(() => {
                 jira_1.findUserByKey(user.jiraKey).then((jiraUser) => {
-                    callback(null, Object.assign(Object.assign({}, user._doc), { jiraUsername: jiraUser.name }), { scope: '*' });
+                    callback(null, Object.assign(Object.assign({}, user._doc), { jiraUsername: jiraUser.name, username: jiraUser.name, email: user.mailcowEmail }), { scope: '*' });
                 });
             });
         });
     });
 }));
 passport_1.default.use('client-basic', new passport_http_1.BasicStrategy((clientId, clientSecret, callback) => {
+    Application_1.default.findById(clientId, (err, oauthClient) => {
+        if (err)
+            return callback(err);
+        if (!oauthClient || oauthClient.clientSecret !== clientSecret)
+            return callback(null, false);
+        return callback(null, oauthClient);
+    });
+}));
+passport_1.default.use(new passport_oauth2_client_password_1.Strategy((clientId, clientSecret, callback) => {
     Application_1.default.findById(clientId, (err, oauthClient) => {
         if (err)
             return callback(err);
@@ -252,7 +262,7 @@ app.get('/auth/discord/callback', passport_1.default.authenticate('discord', {
     }
     res.status(200).send('Signed in');
 }));
-app.post('/oauth2/token', [passport_1.default.authenticate('client-basic', { session: false }), oauth2Server.token(), oauth2Server.errorHandler()]);
+app.post('/oauth2/token', [passport_1.default.authenticate(['client-basic', 'oauth2-client-password'], { session: false }), oauth2Server.token(), oauth2Server.errorHandler()]);
 app.get('/oauth2/authorize', (req, res, next) => {
     // @ts-expect-error never
     if (!req.session)
