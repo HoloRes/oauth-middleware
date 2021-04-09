@@ -152,7 +152,7 @@ passport_1.default.use(new passport_http_bearer_1.Strategy((accessToken, callbac
             // Simple example with no scope
             jira_1.updateUserGroupsByKey(user._id, user.jiraKey).then(() => {
                 jira_1.findUserByKey(user.jiraKey).then((jiraUser) => {
-                    callback(null, Object.assign(Object.assign({}, user._doc), { jiraUsername: jiraUser.name, username: jiraUser.name, email: user.mailcowEmail, id: user._id }), { scope: '*' });
+                    callback(null, Object.assign(Object.assign({}, user._doc), { jiraUsername: jiraUser.name, username: jiraUser.name, email: user.mailcowEmail, id: jiraUser.name }), { scope: '*' });
                 });
             });
         });
@@ -234,7 +234,11 @@ app.get('/auth/fail', (req, res) => {
 });
 app.get('/auth/logout', (req, res) => {
     req.logout();
-    res.status(200).send('Signed out');
+    // @ts-expect-error not assignable to string
+    if (req.query.redirectUrl)
+        res.redirect(req.query.redirectUrl);
+    else
+        res.status(200).send('Signed out');
 });
 app.get('/auth/discord', passport_1.default.authenticate('discord'));
 app.get('/auth/discord/callback', passport_1.default.authenticate('discord', {
