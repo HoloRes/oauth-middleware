@@ -9,6 +9,7 @@ import {
 } from '@oauth-everything/passport-discord';
 import { Strategy as BearerStrategy } from 'passport-http-bearer';
 import { BasicStrategy } from 'passport-http';
+import { Strategy as ClientPasswordStrategy } from 'passport-oauth2-client-password';
 import Discord from 'discord.js';
 import mongoose from 'mongoose';
 import oauth2orize from 'oauth2orize';
@@ -170,6 +171,15 @@ passport.use('client-basic', new BasicStrategy((clientId, clientSecret, callback
 	});
 }));
 
+passport.use(new ClientPasswordStrategy((clientId, clientSecret, callback) => {
+	Application.findById(clientId, (err: any, oauthClient: ApplicationType) => {
+		if (err) return callback(err);
+
+		if (!oauthClient || oauthClient.clientSecret !== clientSecret) return callback(null, false);
+		return callback(null, oauthClient);
+	});
+}));
+
 // app.use('/holores', holoresRouter);
 
 // Discord
@@ -263,7 +273,7 @@ app.get('/auth/discord/callback', passport.authenticate('discord', {
 	} res.status(200).send('Signed in');
 });
 
-app.post('/oauth2/token', [passport.authenticate('client-basic', { session: false }), oauth2Server.token(), oauth2Server.errorHandler()]);
+app.post('/oauth2/token', [passport.authenticate(['client-basic', 'oauth2-client-password'], { session: false }), oauth2Server.token(), oauth2Server.errorHandler()]);
 
 app.get('/oauth2/authorize',
 	(req, res, next) => {
