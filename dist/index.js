@@ -152,7 +152,7 @@ passport_1.default.use(new passport_http_bearer_1.Strategy((accessToken, callbac
             // Simple example with no scope
             jira_1.updateUserGroupsByKey(user._id, user.jiraKey).then(() => {
                 jira_1.findUserByKey(user.jiraKey).then((jiraUser) => {
-                    callback(null, Object.assign(Object.assign({}, user._doc), { jiraUsername: jiraUser.name, username: jiraUser.name, email: user.mailcowEmail }), { scope: '*' });
+                    callback(null, Object.assign(Object.assign({}, user._doc), { jiraUsername: jiraUser.name, username: jiraUser.name, email: user.mailcowEmail, id: user._id }), { scope: '*' });
                 });
             });
         });

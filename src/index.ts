@@ -160,6 +160,7 @@ passport.use(new BearerStrategy((accessToken, callback) => {
 						jiraUsername: jiraUser.name,
 						username: jiraUser.name,
 						email: user.mailcowEmail,
+						id: user._id,
 					}, { scope: '*' });
 				});
 			});
