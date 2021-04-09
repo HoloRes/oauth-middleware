@@ -112,7 +112,7 @@ passport.use(new DiscordStrategy(config.discord, async (accessToken: string, ref
 					if (err2) throw new Error(err2);
 				});
 				// @ts-expect-error Possible undefined
-				updateUserGroups(profile.id, profile.username, profile.emails[0].value).then(() => {
+				updateUserGroups(profile.id, profile.username).then(() => {
 					User.findById(profile.id, (err3: any, user: UserType) => {
 						if (err3) throw new Error(err3);
 						cb(null, user);
@@ -123,7 +123,7 @@ passport.use(new DiscordStrategy(config.discord, async (accessToken: string, ref
 			} else {
 				if (!doc.jiraKey) {
 					// @ts-expect-error Possible undefined
-					updateUserGroups(profile.id, profile.username, profile.emails[0].value).then(() => {
+					updateUserGroups(profile.id, profile.username).then(() => {
 						User.findById(profile.id, (err3: any, user: UserType) => {
 							if (err3) throw new Error(err3);
 							cb(null, user);

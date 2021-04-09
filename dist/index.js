@@ -106,7 +106,7 @@ passport_1.default.use(new passport_discord_1.Strategy(config.discord, (accessTo
                         throw new Error(err2);
                 });
                 // @ts-expect-error Possible undefined
-                jira_1.updateUserGroups(profile.id, profile.username, profile.emails[0].value).then(() => {
+                jira_1.updateUserGroups(profile.id, profile.username).then(() => {
                     User_1.default.findById(profile.id, (err3, user) => {
                         if (err3)
                             throw new Error(err3);
@@ -119,7 +119,7 @@ passport_1.default.use(new passport_discord_1.Strategy(config.discord, (accessTo
             else {
                 if (!doc.jiraKey) {
                     // @ts-expect-error Possible undefined
-                    jira_1.updateUserGroups(profile.id, profile.username, profile.emails[0].value).then(() => {
+                    jira_1.updateUserGroups(profile.id, profile.username).then(() => {
                         User_1.default.findById(profile.id, (err3, user) => {
                             if (err3)
                                 throw new Error(err3);

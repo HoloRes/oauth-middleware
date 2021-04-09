@@ -86,81 +86,92 @@ const findUserByKey = (key) => new Promise((resolve, reject) => {
 });
 exports.findUserByKey = findUserByKey;
 function createEmail(member, user) {
-    const generatedPassword = generate_password_1.default.generate({
-        length: 14,
-        numbers: true,
-        strict: true,
-    });
-    let username = member.user.username.replace(/\s/g, '-').toLowerCase();
-    let valid = emailRegex.test(username);
-    if (!valid) {
-        member.user.send('Your Discord username is not a valid for an email address. Please respond in 1 minute with a proper alphanumerical username.')
-            .then((msg) => {
-            // eslint-disable-next-line max-len
-            const collector = msg.channel.createMessageCollector((message) => message.author.id === member.user.id, { time: 60 * 1000 });
-            collector.on('collect', (message) => {
-                valid = emailRegex.test(message.content.replace(/\s/g, '-').toLowerCase());
-                if (!valid)
-                    member.user.send('Invalid username');
-                else {
-                    username = message.content.replace(/\s/g, '-').toLowerCase();
-                    // eslint-disable-next-line no-use-before-define
-                    createEmailRequest();
-                    collector.stop();
-                }
-            });
-            collector.on('end', (collected) => {
-                if (collected.size === 0 || !valid)
-                    member.user.send('No valid username recorded, please put in a request for an email here: https://holores.atlassian.net/servicedesk/customer/portal/3, or login once again to restart the process. ');
-            });
+    return new Promise((resolve, reject) => {
+        const generatedPassword = generate_password_1.default.generate({
+            length: 14,
+            numbers: true,
+            strict: true,
         });
-        // eslint-disable-next-line no-use-before-define
-    }
-    else
-        createEmailRequest();
-    function createEmailRequest() {
-        axios_1.default.post(`${config.mailcow.url}/api/v1/add/mailbox`, {
-            active: 1,
-            domain: config.mailcow.tlDomain,
-            local_part: username,
-            password: generatedPassword,
-            password2: generatedPassword,
-            quota: 3072,
-            force_pw_update: 1,
-        }, {
-            headers: {
-                'X-API-Key': config.mailcow.apiKey,
-            },
-        })
-            .then(() => {
-            // eslint-disable-next-line no-param-reassign
-            user.mailcowEmail = `${username}@${config.mailcow.tlDomain}`;
-            user.save();
-            member.user.send(`Email has been automatically created:
+        let username = member.user.username.replace(/\s/g, '-').toLowerCase();
+        let valid = emailRegex.test(username);
+        if (!valid) {
+            member.user.send('Your Discord username is not a valid for an email address. Please respond in 1 minute with a proper alphanumerical username.')
+                .then((msg) => {
+                // eslint-disable-next-line max-len
+                const collector = msg.channel.createMessageCollector((message) => message.author.id === member.user.id, { time: 60 * 1000 });
+                collector.on('collect', (message) => {
+                    valid = emailRegex.test(message.content.replace(/\s/g, '-').toLowerCase());
+                    if (!valid)
+                        member.user.send('Invalid username');
+                    else {
+                        username = message.content.replace(/\s/g, '-').toLowerCase();
+                        // eslint-disable-next-line no-use-before-define
+                        createEmailRequest();
+                        collector.stop();
+                    }
+                });
+                collector.on('end', (collected) => {
+                    if (collected.size === 0 || !valid) {
+                        member.user.send('No valid username recorded, please put in a request for an email here: https://holores.atlassian.net/servicedesk/customer/portal/3, or login once again to restart the process. ');
+                        reject();
+                    }
+                });
+            });
+            // eslint-disable-next-line no-use-before-define
+        }
+        else
+            createEmailRequest();
+        function createEmailRequest() {
+            axios_1.default.post(`${config.mailcow.url}/api/v1/add/mailbox`, {
+                active: 1,
+                domain: config.mailcow.tlDomain,
+                local_part: username,
+                password: generatedPassword,
+                password2: generatedPassword,
+                quota: 3072,
+                force_pw_update: 1,
+            }, {
+                headers: {
+                    'X-API-Key': config.mailcow.apiKey,
+                },
+            })
+                .then(() => {
+                // eslint-disable-next-line no-param-reassign
+                user.mailcowEmail = `${username}@${config.mailcow.tlDomain}`;
+                user.save();
+                member.user.send(`Email has been automatically created:
 Email: \`${member.user.username}@${config.mailcow.tlDomain}\`
 Password: \`${generatedPassword}\`
 Please immediately change your password here: ${config.mailcow.url}
 If you have any issues, file an ticket here: https://holores.atlassian.net/servicedesk/customer/portal/3
 Mail redirect can be done via the webmail client, Preferences > Mail > Forward
 		`);
-        })
-            .catch(console.error);
-    }
+                resolve(user.mailcowEmail);
+            })
+                .catch(console.error);
+        }
+    });
 }
-// eslint-disable-next-line max-len
-const updateUserGroups = (discordId, username, email) => new Promise((resolve, reject) => {
+// eslint-disable-next-line max-len,no-async-promise-executor
+const updateUserGroups = (discordId, username) => new Promise((resolve, reject) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const guild = yield index_1.client.guilds.fetch(config.discordServerId).catch(reject);
+    // @ts-expect-error guild.members possibly undefined
+    const member = yield (guild === null || guild === void 0 ? void 0 : guild.members.fetch(discordId).catch(reject));
+    const userDoc = yield User_1.default.findById(discordId).exec()
+        .catch((e) => {
+        throw e;
+    });
+    let email = (_a = userDoc === null || userDoc === void 0 ? void 0 : userDoc.mailcowEmail) !== null && _a !== void 0 ? _a : undefined;
+    if (!email)
+        email = yield createEmail(member, userDoc);
     findUser(username, email, discordId).then((user) => __awaiter(void 0, void 0, void 0, function* () {
-        const guild = yield index_1.client.guilds.fetch(config.discordServerId).catch(reject);
-        // @ts-expect-error guild.members possibly undefined
-        const member = yield (guild === null || guild === void 0 ? void 0 : guild.members.fetch(discordId).catch(reject));
         // @ts-expect-error Possible void
         const groupLinks = yield GroupLink_1.default.find({}).lean().exec()
             .catch(reject);
         User_1.default.findById(discordId, (err, doc) => {
             if (err)
                 return;
-            if (doc && !doc.mailcowEmail)
-                createEmail(member, doc);
             if (doc && !doc.jiraKey) {
                 // eslint-disable-next-line no-param-reassign
                 doc.jiraKey = user.key;
@@ -210,7 +221,7 @@ const updateUserGroups = (discordId, username, email) => new Promise((resolve, r
         yield Promise.all(addRolesPromise);
         resolve();
     })).catch(reject);
-});
+}));
 exports.updateUserGroups = updateUserGroups;
 // eslint-disable-next-line max-len
 const updateUserGroupsByKey = (discordId, key) => new Promise((resolve, reject) => {
