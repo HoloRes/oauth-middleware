@@ -13,6 +13,8 @@ import { Strategy as ClientPasswordStrategy } from 'passport-oauth2-client-passw
 import Discord from 'discord.js';
 import mongoose from 'mongoose';
 import oauth2orize from 'oauth2orize';
+import helmet from 'helmet';
+import oidc from 'oidc-provider';
 
 // Models
 import intformat from 'biguint-format';
@@ -39,6 +41,7 @@ const MongoDBStore = require('connect-mongodb-session')(session);
 export const client = new Discord.Client();
 const flakeIdGen = new FlakeId();
 const oauth2Server = oauth2orize.createServer();
+const oidcProvider = new oidc.Provider('http://localhost:3001');
 
 const app = express();
 app.use(express.urlencoded());
@@ -63,8 +66,10 @@ const sessionOptions = {
 if (app.get('env') === 'production') {
 	app.set('trust proxy', 2); // trust first two proxies, CF and IIS
 	sessionOptions.cookie.secure = true; // serve secure cookies
+	oidcProvider.proxy = true;
 }
 
+app.use(helmet());
 app.use(session(sessionOptions));
 app.use(passport.initialize());
 app.use(passport.session());
