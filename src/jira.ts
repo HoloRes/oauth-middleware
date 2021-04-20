@@ -73,6 +73,7 @@ export const findUserByKey = (key: string): Promise<User> => new Promise((resolv
 	});
 });
 
+// eslint-disable-next-line max-len
 const createEmail = (member: Discord.GuildMember, user: UserDocType): Promise<string> => new Promise((resolve, reject) => {
 	const generatedPassword = generator.generate({
 		length: 14,
