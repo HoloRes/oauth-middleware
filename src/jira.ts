@@ -133,8 +133,7 @@ const createEmail = (member: Discord.GuildMember, user: UserDocType): Promise<st
 Email: \`${member.user.username}@${config.mailcow.tlDomain}\`
 Password: \`${generatedPassword}\`
 Please immediately change your password here: ${config.mailcow.url}
-If you have any issues, file an ticket here: https://holores.atlassian.net/servicedesk/customer/portal/3
-Mail redirect can be done via the webmail client, Preferences > Mail > Forward
+If you have any issues or want to setup email forwarding, check the internal wiki. If you still can't figure it out, contact support.
 		`);
 				resolve(user.mailcowEmail);
 			})

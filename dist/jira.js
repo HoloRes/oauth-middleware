@@ -85,6 +85,7 @@ const findUserByKey = (key) => new Promise((resolve, reject) => {
     });
 });
 exports.findUserByKey = findUserByKey;
+// eslint-disable-next-line max-len
 const createEmail = (member, user) => new Promise((resolve, reject) => {
     const generatedPassword = generate_password_1.default.generate({
         length: 14,
@@ -143,8 +144,7 @@ const createEmail = (member, user) => new Promise((resolve, reject) => {
 Email: \`${member.user.username}@${config.mailcow.tlDomain}\`
 Password: \`${generatedPassword}\`
 Please immediately change your password here: ${config.mailcow.url}
-If you have any issues, file an ticket here: https://holores.atlassian.net/servicedesk/customer/portal/3
-Mail redirect can be done via the webmail client, Preferences > Mail > Forward
+If you have any issues or want to setup email forwarding, check the internal wiki. If you still can't figure it out, contact support.
 		`);
             resolve(user.mailcowEmail);
         })
