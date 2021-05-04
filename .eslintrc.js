@@ -23,5 +23,6 @@ module.exports = {
 		'no-plusplus': ['error', {
 			allowForLoopAfterthoughts: true,
 		}],
+		'import/extensions': 0,
 	},
 };

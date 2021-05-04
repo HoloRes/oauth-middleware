@@ -159,6 +159,7 @@ passport.use(new BearerStrategy((accessToken, callback) => {
 						...user._doc,
 						jiraUsername: jiraUser.name,
 						username: jiraUser.name,
+						displayName: jiraUser.name,
 						email: user.mailcowEmail,
 						id: jiraUser.name,
 					}, { scope: '*' });
