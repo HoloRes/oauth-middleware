@@ -5,24 +5,27 @@ module.exports = {
 	},
 	extends: [
 		'airbnb-base',
+		'airbnb-typescript/base',
 	],
 	parser: '@typescript-eslint/parser',
 	parserOptions: {
 		ecmaVersion: 12,
 		sourceType: 'module',
+		project: './tsconfig.eslint.json',
 	},
 	plugins: [
 		'@typescript-eslint',
 	],
 	ignorePatterns: ['**/*.d.ts'],
 	rules: {
-		indent: [2, 'tab'],
-		'no-tabs': 0,
-		'consistent-return': 0, // Disabled as returns are not required
-		'no-underscore-dangle': 0, // Disabled as mongoose uses _id,
+		indent: 'off',
+		'@typescript-eslint/indent': ['error', 'tab'],
+		'no-tabs': 'off',
+		'consistent-return': 'off', // Disabled as returns are not required
+		'no-underscore-dangle': 'off', // Disabled as mongoose uses _id,
 		'no-plusplus': ['error', {
 			allowForLoopAfterthoughts: true,
 		}],
-		'import/extensions': 0,
+		'import/extensions': 'off',
 	},
 };

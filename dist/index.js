@@ -1,4 +1,23 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -21,9 +40,10 @@ const passport_discord_1 = require("@oauth-everything/passport-discord");
 const passport_http_bearer_1 = require("passport-http-bearer");
 const passport_http_1 = require("passport-http");
 const passport_oauth2_client_password_1 = require("passport-oauth2-client-password");
-const discord_js_1 = __importDefault(require("discord.js"));
+const discord_js_1 = __importStar(require("discord.js"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const oauth2orize_1 = __importDefault(require("oauth2orize"));
+const connect_mongodb_session_1 = __importDefault(require("connect-mongodb-session"));
 // Models
 const biguint_format_1 = __importDefault(require("biguint-format"));
 const flake_idgen_1 = __importDefault(require("flake-idgen"));
@@ -33,13 +53,20 @@ const Application_1 = __importDefault(require("./models/Application"));
 const Code_1 = __importDefault(require("./models/Code"));
 const AccessToken_1 = __importDefault(require("./models/AccessToken"));
 // Local files
+// eslint-disable-next-line import/no-cycle
 const jira_1 = require("./jira");
 const util_1 = require("./util");
+// Routers
+// import holoresRouter from './holores';
 const config = require('../config.json');
-const MongoDBStore = require('connect-mongodb-session')(express_session_1.default);
+const MongoDBStore = connect_mongodb_session_1.default(express_session_1.default);
 // Init
 // eslint-disable-next-line import/prefer-default-export
-exports.client = new discord_js_1.default.Client();
+exports.client = new discord_js_1.default.Client({
+    intents: [
+        discord_js_1.Intents.FLAGS.DIRECT_MESSAGES,
+    ],
+});
 const flakeIdGen = new flake_idgen_1.default();
 const oauth2Server = oauth2orize_1.default.createServer();
 const app = express_1.default();
@@ -81,101 +108,107 @@ passport_1.default.deserializeUser((id, done) => {
 });
 // eslint-disable-next-line max-len
 passport_1.default.use(new passport_discord_1.Strategy(config.discord, (accessToken, refreshToken, profile, cb) => __awaiter(void 0, void 0, void 0, function* () {
-    const guild = yield exports.client.guilds.fetch(config.discordServerId).catch((err) => {
+    const guild = yield exports.client.guilds.fetch(config.discordServerId)
+        .catch((err) => {
         throw new Error(err);
     });
-    // @ts-expect-error Not a valid Error type
-    const member = yield (guild === null || guild === void 0 ? void 0 : guild.members.fetch(profile.id).catch(() => cb("You don't have the required permissions to login")));
-    const baseRole = yield GroupLink_1.default.findOne({ baseRole: true }).lean().exec().catch((err) => {
+    const member = yield (guild === null || guild === void 0 ? void 0 : guild.members.fetch(profile.id).catch(() => {
+        cb(new Error("You don't have the required permissions to login"));
+    }));
+    const baseRole = yield GroupLink_1.default.findOne({ baseRole: true }).lean().exec()
+        .catch((err) => {
         throw new Error(err);
     });
     // @ts-expect-error baseRole possibly null
-    if (!(member === null || member === void 0 ? void 0 : member.user) || !member.roles.cache.has(baseRole === null || baseRole === void 0 ? void 0 : baseRole._id))
-        cb("You don't have the required permissions to login");
+    if (!(member === null || member === void 0 ? void 0 : member.user) || !member.roles.cache.has(baseRole === null || baseRole === void 0 ? void 0 : baseRole._id)) {
+        cb(new Error('You don\'t have the required permissions to login'));
+    }
     else {
-        User_1.default.findById(profile.id, (err, doc) => __awaiter(void 0, void 0, void 0, function* () {
-            if (err)
-                throw new Error(err);
-            if (!doc) {
-                const newUser = new User_1.default({
-                    _id: profile.id,
-                    username: profile.username,
-                });
-                newUser.save((err2) => {
-                    if (err2)
-                        throw new Error(err2);
-                });
+        const doc = yield User_1.default.findById(profile.id).exec()
+            .catch((err) => {
+            throw err;
+        });
+        if (!doc) {
+            const newUser = new User_1.default({
+                _id: profile.id,
+                username: profile.username,
+            });
+            newUser.save((err2) => {
+                if (err2)
+                    throw new Error(err2);
+            });
+            yield jira_1.updateUserGroups(profile.id, profile.username)
+                .catch((err) => {
+                cb(new Error(`Something went wrong, please try again later. Please report this error to the administrator. ERROR_CODE: JIRA_UPDATE_GROUPS TIMESTAMP: ${new Date().toISOString()}`));
+                throw err;
+            });
+            const user = yield User_1.default.findById(profile.id).exec()
+                .catch((err) => {
+                cb(new Error(`Something went wrong, please try again later. Please report this error to the administrator. ERROR_CODE: DB_FIND_USER TIMESTAMP: ${new Date().toISOString()}`));
+                throw err;
+            });
+            cb(null, user);
+        }
+        else {
+            if (!doc.jiraKey) {
                 // @ts-expect-error Possible undefined
-                jira_1.updateUserGroups(profile.id, profile.username).then(() => {
-                    User_1.default.findById(profile.id, (err3, user) => {
-                        if (err3)
-                            throw new Error(err3);
-                        cb(null, user);
-                    }).catch((err4) => {
-                        console.log(err4);
-                    });
+                yield jira_1.updateUserGroups(profile.id, profile.username)
+                    .catch((err) => {
+                    cb(new Error(`Something went wrong, please try again later. Please report this error to the administrator. ERROR_CODE: JIRA_UPDATE_GROUPS TIMESTAMP: ${new Date().toISOString()}`));
+                    throw err;
                 });
-            }
-            else {
-                if (!doc.jiraKey) {
-                    // @ts-expect-error Possible undefined
-                    jira_1.updateUserGroups(profile.id, profile.username).then(() => {
-                        User_1.default.findById(profile.id, (err3, user) => {
-                            if (err3)
-                                throw new Error(err3);
-                            cb(null, user);
-                        }).catch((err2) => {
-                            console.log(err2);
-                        });
-                    });
-                }
-                jira_1.updateUserGroupsByKey(profile.id, doc.jiraKey).then(() => {
-                    cb(null, doc);
+                const user = yield User_1.default.findById(profile.id).exec()
+                    .catch((err) => {
+                    cb(new Error(`Something went wrong, please try again later. Please report this error to the administrator. ERROR_CODE: DB_FIND_USER TIMESTAMP: ${new Date().toISOString()}`));
+                    throw err;
                 });
+                cb(null, user);
             }
-        }));
+            yield jira_1.updateUserGroupsByKey(profile.id, doc.jiraKey)
+                // eslint-disable-next-line max-len
+                // Purposefully do not do anything with this error, a Jira user already exists, so no need to error the entire auth process.
+                .catch(() => { });
+            cb(null, doc);
+        }
     }
 })));
-passport_1.default.use(new passport_http_bearer_1.Strategy((accessToken, callback) => {
-    AccessToken_1.default.findOne({ token: accessToken }, (err, token) => {
-        if (err)
-            return callback(err);
-        // No token found
-        if (!token)
-            return callback(null, false);
-        User_1.default.findById(token.userId, (err2, user) => {
-            if (err)
-                return callback(err2);
-            // No user found
-            if (!user)
-                return callback(null, false);
-            // Simple example with no scope
-            jira_1.updateUserGroupsByKey(user._id, user.jiraKey).then(() => {
-                jira_1.findUserByKey(user.jiraKey).then((jiraUser) => {
-                    callback(null, Object.assign(Object.assign({}, user._doc), { jiraUsername: jiraUser.name, username: jiraUser.name, displayName: jiraUser.name, email: user.mailcowEmail, id: jiraUser.name }), { scope: '*' });
-                });
-            });
-        });
+passport_1.default.use(new passport_http_bearer_1.Strategy((accessToken, cb) => __awaiter(void 0, void 0, void 0, function* () {
+    const token = yield AccessToken_1.default.findOne({ token: accessToken }).exec()
+        .catch((err) => {
+        cb(err);
     });
-}));
-passport_1.default.use('client-basic', new passport_http_1.BasicStrategy((clientId, clientSecret, callback) => {
-    Application_1.default.findById(clientId, (err, oauthClient) => {
-        if (err)
-            return callback(err);
-        if (!oauthClient || oauthClient.clientSecret !== clientSecret)
-            return callback(null, false);
-        return callback(null, oauthClient);
+    // No token found
+    if (!token)
+        return cb(null, false);
+    const user = yield User_1.default.findById(token.userId).exec()
+        .catch((err) => {
+        cb(err);
     });
-}));
-passport_1.default.use(new passport_oauth2_client_password_1.Strategy((clientId, clientSecret, callback) => {
-    Application_1.default.findById(clientId, (err, oauthClient) => {
-        if (err)
-            return callback(err);
-        if (!oauthClient || oauthClient.clientSecret !== clientSecret)
-            return callback(null, false);
-        return callback(null, oauthClient);
+    // No user found
+    if (!user)
+        return cb(null, false);
+    yield jira_1.updateUserGroupsByKey(user._id, user.jiraKey);
+    const jiraUser = yield jira_1.findUserByKey(user.jiraKey);
+    cb(null, Object.assign(Object.assign({}, user._doc), { jiraUsername: jiraUser.name, username: jiraUser.name, displayName: jiraUser.name, email: user.mailcowEmail, id: jiraUser.name }), { scope: '*' });
+})));
+passport_1.default.use('client-basic', new passport_http_1.BasicStrategy((clientId, clientSecret, cb) => __awaiter(void 0, void 0, void 0, function* () {
+    const oauthClient = yield Application_1.default.findById(clientId).exec()
+        .catch((err) => {
+        cb(err);
     });
-}));
+    if (!oauthClient || oauthClient.clientSecret !== clientSecret)
+        return cb(null, false);
+    return cb(null, oauthClient);
+})));
+passport_1.default.use(new passport_oauth2_client_password_1.Strategy((clientId, clientSecret, cb) => __awaiter(void 0, void 0, void 0, function* () {
+    const oauthClient = yield Application_1.default.findById(clientId).exec()
+        .catch((err) => {
+        cb(err);
+    });
+    if (!oauthClient || oauthClient.clientSecret !== clientSecret)
+        return cb(null, false);
+    return cb(null, oauthClient);
+})));
 // app.use('/holores', holoresRouter);
 // Discord
 exports.client.on('ready', () => {
@@ -279,44 +312,45 @@ app.get('/oauth2/authorize', (req, res, next) => {
         res.redirect('/auth/discord');
     else
         next();
-}, oauth2Server.authorize((clientID, redirectURI, done) => {
-    Application_1.default.findById(clientID, (err, oauthClient) => {
-        if (err) {
-            return done(err);
-        }
-        if (!oauthClient) {
-            return done(null, false);
-        }
-        if (oauthClient.redirectUrl !== redirectURI) {
-            return done(null, false);
-        }
-        return done(null, oauthClient, oauthClient.redirectUrl);
+}, oauth2Server.authorize((clientID, redirectURI, done) => __awaiter(void 0, void 0, void 0, function* () {
+    const oauthClient = yield Application_1.default.findById(clientID).exec()
+        .catch((err) => {
+        done(err);
     });
-}), oauth2Server.decision());
+    if (!oauthClient) {
+        return done(null, false);
+    }
+    if (oauthClient.redirectUrl !== redirectURI) {
+        return done(null, false);
+    }
+    return done(null, oauthClient, oauthClient.redirectUrl);
+})), oauth2Server.decision());
 app.get('/api/userinfo', passport_1.default.authenticate('bearer', { session: false }), (req, res) => {
     res.status(200).json(req.user);
 });
-app.get('/api/userByJiraKey', passport_1.default.authenticate('client-basic', { session: false }), (req, res) => {
+app.get('/api/userByJiraKey', passport_1.default.authenticate('client-basic', { session: false }), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     // @ts-expect-error Not assignable to
-    User_1.default.findOne({ jiraKey: req.query.key }).lean()
-        .exec((err, doc) => {
-        if (err)
-            return res.status(500).end();
-        res.status(200).json(doc);
+    const doc = yield User_1.default.findOne({ jiraKey: req.query.key }).lean().exec()
+        .catch(() => {
+        res.status(500).end();
     });
-});
-app.get('/api/userByDiscordId', passport_1.default.authenticate('client-basic', { session: false }), (req, res) => {
-    User_1.default.findById(req.query.id).lean()
-        .exec((err, doc) => {
-        if (err)
-            return res.status(500).end();
-        // @ts-expect-error doc possibly undefined
-        jira_1.findUserByKey(doc.jiraKey)
-            .then((jiraUser) => {
-            res.status(200).json(Object.assign(Object.assign({}, doc), { username: jiraUser.name }));
-        });
+    if (!doc)
+        res.status(404).end();
+    res.status(200).json(doc);
+}));
+app.get('/api/userByDiscordId', passport_1.default.authenticate('client-basic', { session: false }), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const doc = yield User_1.default.findById(req.query.id).exec()
+        .catch(() => {
+        res.status(500).end();
     });
-});
+    if (!doc)
+        return res.status(404).end();
+    const jiraUser = yield jira_1.findUserByKey(doc.jiraKey)
+        .catch(() => {
+        res.status(404).end();
+    });
+    res.status(200).json(Object.assign(Object.assign({}, doc), { username: jiraUser.name }));
+}));
 app.post('/admin/application', (req, res) => {
     if (req.get('Authorization') !== config.adminToken)
         res.status(403).end();
@@ -337,7 +371,7 @@ app.delete('/admin/application', (req, res) => {
         if (!application)
             res.status(404).end();
         else
-            res.status(200).json(application);
+            res.status(204).end();
     });
 });
 app.get('/admin/application', (req, res) => {
@@ -372,7 +406,7 @@ app.delete('/admin/groupLink', (req, res) => {
         if (!link)
             res.status(404).end();
         else
-            res.status(200).json(link);
+            res.status(204).end();
     });
 });
 app.get('/admin/groupLink', (req, res) => {

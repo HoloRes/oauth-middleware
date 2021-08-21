@@ -4,6 +4,7 @@ exports.uid = void 0;
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
+// eslint-disable-next-line import/prefer-default-export
 function uid(len) {
     const buf = [];
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';

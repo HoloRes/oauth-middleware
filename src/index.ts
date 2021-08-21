@@ -10,33 +10,41 @@ import {
 import { Strategy as BearerStrategy } from 'passport-http-bearer';
 import { BasicStrategy } from 'passport-http';
 import { Strategy as ClientPasswordStrategy } from 'passport-oauth2-client-password';
-import Discord from 'discord.js';
+import Discord, { Intents } from 'discord.js';
 import mongoose from 'mongoose';
 import oauth2orize from 'oauth2orize';
+import MongoDBSession from 'connect-mongodb-session';
 
 // Models
 import intformat from 'biguint-format';
 import FlakeId from 'flake-idgen';
 import User, { Type as UserType } from './models/User';
 import GroupLink from './models/GroupLink';
-import Application, { Type as ApplicationType } from './models/Application';
+import Application from './models/Application';
 import Code, { Type as CodeType } from './models/Code';
-import AccessToken, { Type as AccessTokenType } from './models/AccessToken';
+import AccessToken from './models/AccessToken';
 
 // Local files
+// eslint-disable-next-line import/no-cycle
 import { updateUserGroups, updateUserGroupsByKey, findUserByKey } from './jira';
 import { uid } from './util';
+import { User as JiraUserType } from './types';
 
 // Routers
-import holoresRouter from './holores';
+// import holoresRouter from './holores';
 
 const config = require('../config.json');
 
-const MongoDBStore = require('connect-mongodb-session')(session);
+const MongoDBStore = MongoDBSession(session);
 
 // Init
 // eslint-disable-next-line import/prefer-default-export
-export const client = new Discord.Client();
+export const client = new Discord.Client({
+	intents: [
+		Intents.FLAGS.DIRECT_MESSAGES,
+	],
+});
+
 const flakeIdGen = new FlakeId();
 const oauth2Server = oauth2orize.createServer();
 
@@ -87,104 +95,128 @@ passport.deserializeUser((id, done) => {
 
 // eslint-disable-next-line max-len
 passport.use(new DiscordStrategy(config.discord, async (accessToken: string, refreshToken: string, profile: DiscordProfile, cb: DiscordVerifyCallback<UserType>) => {
-	const guild = await client.guilds.fetch(config.discordServerId).catch((err) => {
-		throw new Error(err);
-	});
+	const guild = await client.guilds.fetch(config.discordServerId)
+		.catch((err) => {
+			throw new Error(err);
+		});
 
-	// @ts-expect-error Not a valid Error type
-	const member = await guild?.members.fetch(profile.id).catch(() => cb("You don't have the required permissions to login"));
+	const member = await guild?.members.fetch(profile.id)
+		.catch(() => {
+			cb(new Error("You don't have the required permissions to login"));
+		});
 
-	const baseRole = await GroupLink.findOne({ baseRole: true }).lean().exec().catch((err) => {
-		throw new Error(err);
-	});
+	const baseRole = await GroupLink.findOne({ baseRole: true }).lean().exec()
+		.catch((err) => {
+			throw new Error(err);
+		});
 
 	// @ts-expect-error baseRole possibly null
-	if (!member?.user || !member.roles.cache.has(baseRole?._id)) cb("You don't have the required permissions to login");
-	else {
-		User.findById(profile.id, async (err: any, doc: UserType) => {
-			if (err) throw new Error(err);
-			if (!doc) {
-				const newUser = new User({
-					_id: profile.id,
-					username: profile.username,
+	if (!member?.user || !member.roles.cache.has(baseRole?._id)) {
+		cb(new Error('You don\'t have the required permissions to login'));
+	} else {
+		const doc = await User.findById(profile.id).exec()
+			.catch((err) => {
+				throw err;
+			});
+
+		if (!doc) {
+			const newUser = new User({
+				_id: profile.id,
+				username: profile.username,
+			});
+			newUser.save((err2: any) => {
+				if (err2) throw new Error(err2);
+			});
+
+			await updateUserGroups(profile.id, profile.username!)
+				.catch((err) => {
+					cb(new Error(`Something went wrong, please try again later. Please report this error to the administrator. ERROR_CODE: JIRA_UPDATE_GROUPS TIMESTAMP: ${new Date().toISOString()}`));
+					throw err;
 				});
-				newUser.save((err2: any) => {
-					if (err2) throw new Error(err2);
+
+			const user = await User.findById(profile.id).exec()
+				.catch((err) => {
+					cb(new Error(`Something went wrong, please try again later. Please report this error to the administrator. ERROR_CODE: DB_FIND_USER TIMESTAMP: ${new Date().toISOString()}`));
+					throw err;
 				});
+
+			cb(null, user!);
+		} else {
+			if (!doc.jiraKey) {
 				// @ts-expect-error Possible undefined
-				updateUserGroups(profile.id, profile.username).then(() => {
-					User.findById(profile.id, (err3: any, user: UserType) => {
-						if (err3) throw new Error(err3);
-						cb(null, user);
-					}).catch((err4) => {
-						console.log(err4);
+				await updateUserGroups(profile.id, profile.username)
+					.catch((err) => {
+						cb(new Error(`Something went wrong, please try again later. Please report this error to the administrator. ERROR_CODE: JIRA_UPDATE_GROUPS TIMESTAMP: ${new Date().toISOString()}`));
+						throw err;
 					});
-				});
-			} else {
-				if (!doc.jiraKey) {
-					// @ts-expect-error Possible undefined
-					updateUserGroups(profile.id, profile.username).then(() => {
-						User.findById(profile.id, (err3: any, user: UserType) => {
-							if (err3) throw new Error(err3);
-							cb(null, user);
-						}).catch((err2) => {
-							console.log(err2);
-						});
+
+				const user = await User.findById(profile.id).exec()
+					.catch((err) => {
+						cb(new Error(`Something went wrong, please try again later. Please report this error to the administrator. ERROR_CODE: DB_FIND_USER TIMESTAMP: ${new Date().toISOString()}`));
+						throw err;
 					});
-				}
-				updateUserGroupsByKey(profile.id, <string>doc.jiraKey).then(() => {
-					cb(null, doc);
-				});
+
+				cb(null, user!);
 			}
-		});
+
+			await updateUserGroupsByKey(profile.id, doc.jiraKey!)
+				// eslint-disable-next-line max-len
+				// Purposefully do not do anything with this error, a Jira user already exists, so no need to error the entire auth process.
+				.catch(() => {});
+			cb(null, doc!);
+		}
 	}
 }));
 
-passport.use(new BearerStrategy((accessToken, callback) => {
-	AccessToken.findOne({ token: accessToken }, (err: any, token: AccessTokenType) => {
-		if (err) return callback(err);
-
-		// No token found
-		if (!token) return callback(null, false);
-
-		User.findById(token.userId, (err2: any, user: UserType) => {
-			if (err) return callback(err2);
-
-			// No user found
-			if (!user) return callback(null, false);
-			// Simple example with no scope
-			updateUserGroupsByKey(user._id, <string>user.jiraKey).then(() => {
-				findUserByKey(<string>user.jiraKey).then((jiraUser) => {
-					callback(null, {
-						...user._doc,
-						jiraUsername: jiraUser.name,
-						username: jiraUser.name,
-						displayName: jiraUser.name,
-						email: user.mailcowEmail,
-						id: jiraUser.name,
-					}, { scope: '*' });
-				});
-			});
+passport.use(new BearerStrategy(async (accessToken, cb) => {
+	const token = await AccessToken.findOne({ token: accessToken }).exec()
+		.catch((err) => {
+			cb(err);
 		});
-	});
+
+	// No token found
+	if (!token) return cb(null, false);
+
+	const user = await User.findById(token.userId).exec()
+		.catch((err) => {
+			cb(err);
+		});
+
+	// No user found
+	if (!user) return cb(null, false);
+
+	await updateUserGroupsByKey(user._id, user.jiraKey!);
+
+	const jiraUser = await findUserByKey(user.jiraKey!);
+
+	cb(null, {
+		...user._doc,
+		jiraUsername: jiraUser.name,
+		username: jiraUser.name,
+		displayName: jiraUser.name,
+		email: user.mailcowEmail,
+		id: jiraUser.name,
+	}, { scope: '*' });
 }));
 
-passport.use('client-basic', new BasicStrategy((clientId, clientSecret, callback) => {
-	Application.findById(clientId, (err: any, oauthClient: ApplicationType) => {
-		if (err) return callback(err);
+passport.use('client-basic', new BasicStrategy(async (clientId, clientSecret, cb) => {
+	const oauthClient = await Application.findById(clientId).exec()
+		.catch((err) => {
+			cb(err);
+		});
 
-		if (!oauthClient || oauthClient.clientSecret !== clientSecret) return callback(null, false);
-		return callback(null, oauthClient);
-	});
+	if (!oauthClient || oauthClient.clientSecret !== clientSecret) return cb(null, false);
+	return cb(null, oauthClient);
 }));
 
-passport.use(new ClientPasswordStrategy((clientId, clientSecret, callback) => {
-	Application.findById(clientId, (err: any, oauthClient: ApplicationType) => {
-		if (err) return callback(err);
+passport.use(new ClientPasswordStrategy(async (clientId, clientSecret, cb) => {
+	const oauthClient = await Application.findById(clientId).exec()
+		.catch((err) => {
+			cb(err);
+		});
 
-		if (!oauthClient || oauthClient.clientSecret !== clientSecret) return callback(null, false);
-		return callback(null, oauthClient);
-	});
+	if (!oauthClient || oauthClient.clientSecret !== clientSecret) return cb(null, false);
+	return cb(null, oauthClient);
 }));
 
 // app.use('/holores', holoresRouter);
@@ -296,13 +328,20 @@ app.get('/oauth2/authorize',
 		if (!req.isAuthenticated()) res.redirect('/auth/discord');
 		else next();
 	},
-	oauth2Server.authorize((clientID, redirectURI, done) => {
-		Application.findById(clientID, (err:any, oauthClient: ApplicationType) => {
-			if (err) { return done(err); }
-			if (!oauthClient) { return done(null, false); }
-			if (oauthClient.redirectUrl !== redirectURI) { return done(null, false); }
-			return done(null, oauthClient, oauthClient.redirectUrl);
-		});
+	oauth2Server.authorize(async (clientID, redirectURI, done) => {
+		const oauthClient = await Application.findById(clientID).exec()
+			.catch((err) => {
+				done(err);
+			});
+
+		if (!oauthClient) {
+			return done(null, false);
+		}
+		if (oauthClient.redirectUrl !== redirectURI) {
+			return done(null, false);
+		}
+
+		return done(null, oauthClient, oauthClient.redirectUrl);
 	}),
 	oauth2Server.decision());
 
@@ -310,84 +349,107 @@ app.get('/api/userinfo', passport.authenticate('bearer', { session: false }), (r
 	res.status(200).json(req.user);
 });
 
-app.get('/api/userByJiraKey', passport.authenticate('client-basic', { session: false }), (req, res) => {
+app.get('/api/userByJiraKey', passport.authenticate('client-basic', { session: false }), async (req, res) => {
 	// @ts-expect-error Not assignable to
-	User.findOne({ jiraKey: req.query.key }).lean()
-		.exec((err, doc) => {
-			if (err) return res.status(500).end();
-			res.status(200).json(doc);
+	const doc = await User.findOne({ jiraKey: req.query.key }).lean().exec()
+		.catch(() => {
+			res.status(500).end();
 		});
+	if (!doc) res.status(404).end();
+
+	res.status(200).json(doc);
 });
 
-app.get('/api/userByDiscordId', passport.authenticate('client-basic', { session: false }), (req, res) => {
-	User.findById(req.query.id).lean()
-		.exec((err, doc) => {
-			if (err) return res.status(500).end();
-			// @ts-expect-error doc possibly undefined
-			findUserByKey(doc.jiraKey)
-				.then((jiraUser) => {
-					res.status(200).json({
-						...doc,
-						username: jiraUser.name,
-					});
-				});
+app.get('/api/userByDiscordId', passport.authenticate('client-basic', { session: false }), async (req, res) => {
+	const doc = await User.findById(req.query.id).exec()
+		.catch(() => {
+			res.status(500).end();
 		});
+
+	if (!doc) return res.status(404).end();
+
+	const jiraUser = await findUserByKey(doc.jiraKey!)
+		.catch(() => {
+			res.status(404).end();
+		}) as JiraUserType;
+
+	res.status(200).json({
+		...doc,
+		username: jiraUser.name,
+	});
 });
 
 app.post('/admin/application', (req, res) => {
 	if (req.get('Authorization') !== config.adminToken) res.status(403).end();
+
 	const application = new Application({
 		_id: intformat(flakeIdGen.next(), 'dec').toString(),
 		...req.body,
 		clientSecret: uid(16),
 	});
+
 	application.save((err) => {
 		if (err) res.status(500).send(err);
+
 		else res.status(201).json(application);
 	});
 });
 
 app.delete('/admin/application', (req, res) => {
 	if (req.get('Authorization') !== config.adminToken) res.status(403).end();
+
 	Application.findByIdAndDelete(req.body.id).exec((err, application) => {
 		if (err) res.status(500).send(err);
+
 		if (!application) res.status(404).end();
-		else res.status(200).json(application);
+
+		else res.status(204).end();
 	});
 });
 
 app.get('/admin/application', (req, res) => {
 	if (req.get('Authorization') !== config.adminToken) res.status(403).end();
+
 	Application.findById(req.query.id).exec((err, application) => {
 		if (err) res.status(500).send(err);
+
 		if (!application) res.status(404).end();
+
 		else res.status(200).json(application);
 	});
 });
 
 app.post('/admin/groupLink', (req, res) => {
 	if (req.get('Authorization') !== config.adminToken) res.status(403).end();
+
 	const link = new GroupLink(req.body);
 	link.save((err) => {
 		if (err) res.status(500).send(err);
+
 		else res.status(201).json(link);
 	});
 });
 
 app.delete('/admin/groupLink', (req, res) => {
 	if (req.get('Authorization') !== config.adminToken) res.status(403).end();
+
 	GroupLink.findByIdAndDelete(req.body.id).exec((err, link) => {
 		if (err) res.status(500).send(err);
+
 		if (!link) res.status(404).end();
-		else res.status(200).json(link);
+
+		else res.status(204).end();
 	});
 });
 
 app.get('/admin/groupLink', (req, res) => {
 	if (req.get('Authorization') !== config.adminToken) res.status(403).end();
+
 	GroupLink.findById(req.query.id).exec((err, link) => {
 		if (err) res.status(500).send(err);
+
 		if (!link) res.status(404).end();
+
 		else res.status(200).json(link);
 	});
 });

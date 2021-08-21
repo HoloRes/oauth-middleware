@@ -1,43 +1,6 @@
 {
-  "devDependencies": {
-    "@tsconfig/node14": "1.0.0",
-    "@types/connect-mongodb-session": "2.4.0",
-    "@types/express": "4.17.11",
-    "@types/express-session": "1.17.3",
-    "@types/flake-idgen": "0.1.30",
-    "@types/oauth2orize": "1.8.8",
-    "@types/passport": "1.0.6",
-    "@types/passport-http": "0.3.8",
-    "@types/passport-http-bearer": "1.0.36",
-    "@types/passport-oauth2-client-password": "0.1.2",
-    "@typescript-eslint/eslint-plugin": "4.22.1",
-    "@typescript-eslint/parser": "4.22.1",
-    "eslint": "7.25.0",
-    "eslint-config-airbnb-base": "14.2.1",
-    "eslint-plugin-import": "2.22.1",
-    "ts-node": "9.1.1",
-    "typescript": "4.2.4"
-  },
-  "dependencies": {
-    "@oauth-everything/passport-discord": "^1.0.2",
-    "axios": "^0.21.1",
-    "biguint-format": "^1.0.2",
-    "connect-mongodb-session": "^2.4.1",
-    "discord.js": "^12.5.1",
-    "express": "^4.17.1",
-    "express-session": "^1.17.1",
-    "flake-idgen": "^1.4.0",
-    "generate-password": "^1.6.0",
-    "mongoose": "^5.12.4",
-    "oauth2orize": "^1.11.0",
-    "oauth2orize-openid": "^0.4.0",
-    "passport": "^0.4.1",
-    "passport-http": "^0.3.0",
-    "passport-http-bearer": "^1.0.1",
-    "passport-oauth2-client-password": "^0.1.2"
-  },
   "name": "jira-oauth-middleware",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "An OAuth2 server that connects Jira to Discord and assigns groups based on roles.",
   "main": "dist/index.js",
   "scripts": {
@@ -53,5 +16,47 @@
   "bugs": {
     "url": "https://github.com/HoloRes/jira-oauth-middleware/issues"
   },
-  "homepage": "https://github.com/HoloRes/jira-oauth-middleware#readme"
+  "homepage": "https://github.com/HoloRes/jira-oauth-middleware#readme",
+  "engines": {
+    "node": ">=16.6.0",
+    "npm": ">=7.0.0"
+  },
+  "devDependencies": {
+    "@types/connect-mongodb-session": "2.4.0",
+    "@types/express": "4.17.11",
+    "@types/express-session": "1.17.3",
+    "@types/flake-idgen": "0.1.30",
+    "@types/oauth2orize": "1.8.8",
+    "@types/passport": "1.0.6",
+    "@types/passport-http": "0.3.8",
+    "@types/passport-http-bearer": "1.0.36",
+    "@types/passport-oauth2-client-password": "0.1.2",
+    "@typescript-eslint/eslint-plugin": "^4.22.1",
+    "@typescript-eslint/parser": "^4.22.1",
+    "eslint": "7.25.0",
+    "eslint-config-airbnb-base": "14.2.1",
+    "eslint-config-airbnb-typescript": "^13.0.0",
+    "eslint-plugin-import": "2.22.1",
+    "ts-node": "9.1.1",
+    "typescript": "4.2.4"
+  },
+  "dependencies": {
+    "@oauth-everything/passport-discord": "^1.0.2",
+    "@tsconfig/node16": "^1.0.2",
+    "axios": "^0.21.1",
+    "biguint-format": "^1.0.2",
+    "connect-mongodb-session": "^2.4.1",
+    "discord.js": "^13.1.0",
+    "express": "^4.17.1",
+    "express-session": "^1.17.1",
+    "flake-idgen": "^1.4.0",
+    "generate-password": "^1.6.0",
+    "mongoose": "^5.12.4",
+    "oauth2orize": "^1.11.0",
+    "oauth2orize-openid": "^0.4.0",
+    "passport": "^0.4.1",
+    "passport-http": "^0.3.0",
+    "passport-http-bearer": "^1.0.1",
+    "passport-oauth2-client-password": "^0.1.2"
+  }
 }

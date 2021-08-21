@@ -1,5 +1,5 @@
-# Select NodeJS LTS Alpine image, alpine for smaller size
-FROM node:lts-alpine
+# Select NodeJS 16 Alpine image, alpine for smaller size
+FROM node:16-alpine
 
 # For Sentry release tracking
 ARG sha
@@ -7,7 +7,7 @@ ENV COMMIT_SHA=$sha
 
 ENV NODE_ENV=production
 
-# Create a folder for the bot
+# Create a temporary directory for build
 WORKDIR /tmp
 COPY package.json .
 COPY package-lock.json .
