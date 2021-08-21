@@ -100,18 +100,25 @@ passport.use(new DiscordStrategy(config.discord, async (accessToken: string, ref
 			throw new Error(err);
 		});
 
+	await guild.roles.fetch();
+
 	const member = await guild?.members.fetch(profile.id)
-		.catch(() => {
+		.catch((err) => {
 			cb(new Error("You don't have the required permissions to login"));
+			throw err;
 		});
+
+	if (!member) {
+		cb(new Error(`Something went wrong, please try again later. Please report this error to the administrator. ERROR_CODE: DISCORD_FAILED_MEMBER_FETCH TIMESTAMP: ${new Date().toISOString()}`));
+		return;
+	}
 
 	const baseRole = await GroupLink.findOne({ baseRole: true }).lean().exec()
 		.catch((err) => {
 			throw new Error(err);
 		});
 
-	// @ts-expect-error baseRole possibly null
-	if (!member?.user || !member.roles.cache.has(baseRole?._id)) {
+	if (!member?.user || (baseRole?._id && !member.roles.cache.has(baseRole._id))) {
 		cb(new Error('You don\'t have the required permissions to login'));
 	} else {
 		const doc = await User.findById(profile.id).exec()
