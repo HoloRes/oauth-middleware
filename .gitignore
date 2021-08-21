@@ -107,3 +107,6 @@ typings/
 
 # Config
 config.json
+
+# Typescript conpiled source
+dist/
