@@ -148,28 +148,29 @@ passport.use(new DiscordStrategy(config.discord, async (accessToken: string, ref
 				});
 
 			cb(null, user!);
+		} else if (!doc.jiraKey) {
+			// @ts-expect-error Possible undefined
+			await updateUserGroups(profile.id, profile.username)
+				.catch((err) => {
+					cb(new Error(`Something went wrong, please try again later. Please report this error to the administrator. ERROR_CODE: JIRA_UPDATE_GROUPS TIMESTAMP: ${new Date().toISOString()}`));
+					throw err;
+				});
+
+			const user = await User.findById(profile.id).exec()
+				.catch((err) => {
+					cb(new Error(`Something went wrong, please try again later. Please report this error to the administrator. ERROR_CODE: DB_FIND_USER TIMESTAMP: ${new Date().toISOString()}`));
+					throw err;
+				});
+
+			cb(null, user!);
 		} else {
-			if (!doc.jiraKey) {
-				// @ts-expect-error Possible undefined
-				await updateUserGroups(profile.id, profile.username)
-					.catch((err) => {
-						cb(new Error(`Something went wrong, please try again later. Please report this error to the administrator. ERROR_CODE: JIRA_UPDATE_GROUPS TIMESTAMP: ${new Date().toISOString()}`));
-						throw err;
-					});
-
-				const user = await User.findById(profile.id).exec()
-					.catch((err) => {
-						cb(new Error(`Something went wrong, please try again later. Please report this error to the administrator. ERROR_CODE: DB_FIND_USER TIMESTAMP: ${new Date().toISOString()}`));
-						throw err;
-					});
-
-				cb(null, user!);
-			}
-
-			await updateUserGroupsByKey(profile.id, doc.jiraKey!)
+			try {
+				await updateUserGroupsByKey(profile.id, doc.jiraKey!);
+			} catch (e) {
 				// eslint-disable-next-line max-len
 				// Purposefully do not do anything with this error, a Jira user already exists, so no need to error the entire auth process.
-				.catch(() => {});
+			}
+
 			cb(null, doc!);
 		}
 	}
