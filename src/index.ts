@@ -129,6 +129,9 @@ let oidcProvider: OIDCProvider;
 				enabled: false,
 			},
 		},
+		pkce: {
+			required: () => false,
+		},
 		findAccount: async (ctx, sub) => ({
 			accountId: sub,
 			async claims() {
