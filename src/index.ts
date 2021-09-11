@@ -14,6 +14,10 @@ import Discord, { Intents } from 'discord.js';
 import mongoose from 'mongoose';
 import oauth2orize from 'oauth2orize';
 import MongoDBSession from 'connect-mongodb-session';
+import { ClientMetadata, Provider as OIDCProvider } from 'oidc-provider';
+import helmet from 'helmet';
+// @ts-expect-error Not exported
+import type { Grant as OIDCGrant } from 'oidc-provider';
 
 // Models
 import intformat from 'biguint-format';
@@ -28,6 +32,7 @@ import AccessToken from './models/AccessToken';
 // eslint-disable-next-line import/no-cycle
 import { updateUserGroups, updateUserGroupsByKey, findUserByKey } from './jira';
 import { uid } from './util';
+import OIDCAdapter from './oidc/adapter';
 import { User as JiraUserType } from './types';
 
 // Routers
@@ -73,6 +78,7 @@ if (app.get('env') === 'production') {
 	sessionOptions.cookie.secure = true; // serve secure cookies
 }
 
+app.use(helmet());
 app.use(session(sessionOptions));
 app.use(passport.initialize());
 app.use(passport.session());
@@ -84,6 +90,61 @@ mongoose.connect(`mongodb+srv://${config.mongodb.username}:${config.mongodb.pass
 	useUnifiedTopology: true,
 	useFindAndModify: false,
 });
+
+// OpenID Connect
+let oidcProvider: OIDCProvider;
+(async () => {
+	await OIDCAdapter.connect();
+
+	oidcProvider = new OIDCProvider(process.env.URL ?? `http://localhost:${config.port}`, {
+		adapter: OIDCAdapter,
+		jwks: {
+			keys: config.oidc.jwks,
+		},
+		routes: {
+			authorization: '/auth/oidc',
+			backchannel_authentication: '/oidc/backchannel',
+			code_verification: '/oidc/device',
+			device_authorization: '/oidc/device/auth',
+			end_session: '/oidc/session/end',
+			introspection: '/oidc/token/introspection',
+			jwks: '/oidc/jwks',
+			pushed_authorization_request: '/oidc/request',
+			registration: '/oidc/reg',
+			revocation: '/oidc/token/revocation',
+			token: '/oidc/token',
+			userinfo: '/oidc/me',
+		},
+		cookies: {
+			keys: config.oidc.cookiesKeys,
+			long: {
+				signed: true,
+			},
+			short: {
+				signed: true,
+			},
+		},
+		features: {
+			devInteractions: {
+				enabled: false,
+			},
+		},
+		findAccount: async (ctx, sub) => ({
+			accountId: sub,
+			async claims() {
+				const user = await User.findById(sub).exec();
+				return {
+					sub,
+					...user,
+				};
+			},
+		}),
+	});
+
+	// oidcProvider.proxy = true;
+
+	app.use(oidcProvider.callback());
+})();
 
 // Passport
 // @ts-expect-error _id doesn't exist on user
@@ -283,8 +344,81 @@ oauth2Server.exchange(oauth2orize.exchange.code((oauthClient, code, redirectUri,
 	});
 }));
 
+// OpenID Connect routes
+app.get('/interaction/:uid',
+	async (req, res, next) => {
+		const details = await oidcProvider.interactionDetails(req, res);
+		if (!details) res.status(400).end();
+		else {
+			// @ts-expect-error never
+			if (!req.session) req.session.regenerate();
+			// @ts-expect-error redirect does not exist
+			req.session.redirect = req.originalUrl;
+			// @ts-expect-error type does not exist
+			req.session.type = 'oidc';
+			next();
+		}
+	},
+	(req, res, next) => {
+		if (!req.isAuthenticated()) res.redirect('/auth/discord');
+		else next();
+	},
+	async (req, res) => {
+		const interactionDetails = await oidcProvider.interactionDetails(req, res);
+		const { prompt: { details }, params } = interactionDetails;
+		let { grantId } = interactionDetails;
+		let grant: OIDCGrant;
+
+		if (grantId) {
+			grant = await oidcProvider.Grant.find(grantId);
+		} else {
+			grant = new oidcProvider.Grant({
+				// @ts-expect-error _id doesn't exist on User
+				accountId: req.user!._id,
+				clientId: params.client_id as string,
+			});
+		}
+
+		if (details.missingOIDCScope) {
+			const { missingOIDCScope }: { missingOIDCScope?: string[] } = details;
+			grant.addOIDCScope(missingOIDCScope.join(' '));
+		}
+		if (details.missingOIDCClaims) {
+			grant.addOIDCClaims(details.missingOIDCClaims);
+		}
+		if (details.missingResourceScopes) {
+			const { missingResourceScopes }: { missingResourceScopes?: object } = details;
+			// eslint-disable-next-line no-restricted-syntax
+			for (const [indicator, scopes] of Object.entries(missingResourceScopes)) {
+				grant.addResourceScope(indicator, scopes.join(' '));
+			}
+		}
+
+		grantId = await grant.save();
+
+		const consent: any = {};
+		if (!interactionDetails.grantId) {
+			consent.grantId = grantId;
+		}
+
+		return oidcProvider.interactionFinished(req, res, {
+			login: {
+				// @ts-expect-error _id doesn't exist on User
+				accountId: req.user!._id,
+			},
+			consent,
+		});
+	});
+
 // Routes
 app.get('/auth/fail', (req, res) => {
+	// @ts-expect-error type does not exist
+	if (req.session?.type === 'oidc') {
+		return oidcProvider.interactionFinished(req, res, {
+			error: 'access_denied',
+			error_description: "Sign in failed, you possibly don't have the required permissions to login",
+		});
+	}
 	res.status(500).send("Sign in failed, you possibly don't have the required permissions to login");
 });
 
