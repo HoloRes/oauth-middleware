@@ -130,6 +130,7 @@ let oidcProvider: OIDCProvider;
 			},
 		},
 		pkce: {
+			methods: ['S256'],
 			required: () => false,
 		},
 		findAccount: async (ctx, sub) => ({

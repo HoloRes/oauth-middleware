@@ -1,6 +1,6 @@
 {
   "name": "jira-oauth-middleware",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "An OAuth2 server that connects Jira to Discord and assigns groups based on roles.",
   "main": "dist/index.js",
   "scripts": {
