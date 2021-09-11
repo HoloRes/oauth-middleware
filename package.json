@@ -55,7 +55,7 @@
     "generate-password": "^1.6.0",
     "helmet": "^4.6.0",
     "lodash": "^4.17.21",
-    "mongodb": "^3.7.0",
+    "mongodb": "^4.0.0",
     "mongoose": "^5.12.4",
     "oauth2orize": "^1.11.0",
     "oauth2orize-openid": "^0.4.0",
