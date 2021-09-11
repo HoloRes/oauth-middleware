@@ -14,7 +14,7 @@ import Discord, { Intents } from 'discord.js';
 import mongoose from 'mongoose';
 import oauth2orize from 'oauth2orize';
 import MongoDBSession from 'connect-mongodb-session';
-import { ClientMetadata, Provider as OIDCProvider } from 'oidc-provider';
+import { Provider as OIDCProvider } from 'oidc-provider';
 import helmet from 'helmet';
 // @ts-expect-error Not exported
 import type { Grant as OIDCGrant } from 'oidc-provider';
@@ -84,6 +84,13 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.listen(config.port);
 
+/* app.use((req, res, next) => {
+	if (req.body) {
+		console.log(`${req.originalUrl}: ${JSON.stringify(req.body, null, 2)}\n${JSON.stringify(req.headers, null, 2)}`);
+	}
+	next();
+}); */
+
 // MongoDB
 mongoose.connect(`mongodb+srv://${config.mongodb.username}:${config.mongodb.password}@${config.mongodb.host}/${config.mongodb.database}`, {
 	useNewUrlParser: true,
@@ -124,6 +131,16 @@ let oidcProvider: OIDCProvider;
 				signed: true,
 			},
 		},
+		claims: {
+			acr: null,
+			auth_time: null,
+			iss: null,
+			openid: [
+				'sub',
+				'email',
+			],
+			sid: null,
+		},
 		features: {
 			devInteractions: {
 				enabled: false,
@@ -133,19 +150,32 @@ let oidcProvider: OIDCProvider;
 			methods: ['S256'],
 			required: () => false,
 		},
-		findAccount: async (ctx, sub) => ({
-			accountId: sub,
-			async claims() {
-				const user = await User.findById(sub).exec();
-				return {
-					sub,
-					...user,
-				};
-			},
-		}),
+		findAccount: async (ctx, sub) => {
+			const user = await User.findById(sub).exec();
+			return {
+				accountId: sub,
+				async claims() {
+					if (ctx.oidc.client!.clientId === 'cloudflare') {
+						return {
+							sub,
+							email: 'cloudflare@hlresort.community',
+							name: user?.lastKnownName ?? undefined,
+							...user,
+						};
+					}
+					return {
+						sub,
+						email: user?.mailcowEmail,
+						name: user?.lastKnownName ?? undefined,
+						...user,
+					};
+				},
+			};
+		},
 	});
-
-	// oidcProvider.proxy = true;
+	if (app.get('env') === 'production') {
+		oidcProvider.proxy = true;
+	}
 
 	app.use(oidcProvider.callback());
 })();
@@ -258,17 +288,37 @@ passport.use(new BearerStrategy(async (accessToken, cb) => {
 	// No user found
 	if (!user) return cb(null, false);
 
-	await updateUserGroupsByKey(user._id, user.jiraKey!);
+	if (!user.jiraKey) {
+		await updateUserGroupsByKey(user._id, user.jiraKey!);
+	} else {
+		try {
+			await updateUserGroupsByKey(user._id, user.jiraKey!);
+		} catch (e) {
+			// eslint-disable-next-line max-len
+			// Purposefully do not do anything with this error, a Jira user already exists, so no need to error the entire auth process.
+		}
+	}
 
-	const jiraUser = await findUserByKey(user.jiraKey!);
+	let jiraUser: JiraUserType | null;
+
+	if (user.lastKnownName) {
+		try {
+			jiraUser = await findUserByKey(user.jiraKey!);
+		} catch (e) {
+			// Purposefully do not do anything with this error
+			jiraUser = null;
+		}
+	} else {
+		jiraUser = await findUserByKey(user.jiraKey!);
+	}
 
 	cb(null, {
 		...user._doc,
-		jiraUsername: jiraUser.name,
-		username: jiraUser.name,
-		displayName: jiraUser.name,
+		jiraUsername: jiraUser?.name ?? user.lastKnownName,
+		username: jiraUser?.name ?? user.lastKnownName,
+		displayName: jiraUser?.name ?? user.lastKnownName,
 		email: user.mailcowEmail,
-		id: jiraUser.name,
+		id: jiraUser?.name ?? user.lastKnownName,
 	}, { scope: '*' });
 }));
 

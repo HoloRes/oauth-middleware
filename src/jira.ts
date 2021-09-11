@@ -143,7 +143,7 @@ If you have any issues or want to setup email forwarding, check the internal wik
 };
 
 // eslint-disable-next-line max-len
-export const updateUserGroups = async (discordId: string, username: string): Promise<void|UserDocType> => {
+export const updateUserGroups = async (discordId: string, username: string): Promise<void | UserDocType> => {
 	const guild = await client.guilds.fetch(config.discordServerId)
 		.catch((err) => {
 			throw err;
@@ -244,6 +244,9 @@ export const updateUserGroupsByKey = async (discordId: string, key: string): Pro
 
 	UserDoc.findById(discordId, (err: any, doc: UserType) => {
 		if (err) return;
+		// eslint-disable-next-line no-param-reassign
+		doc.lastKnownName = user.name;
+		doc.save();
 		if (doc && !doc.mailcowEmail) createEmail(member, doc);
 	});
 

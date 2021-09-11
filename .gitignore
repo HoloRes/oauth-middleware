@@ -110,3 +110,7 @@ config.json
 
 # Typescript conpiled source
 dist/
+
+
+# Ignore DevSpace cache and log folder
+.devspace/

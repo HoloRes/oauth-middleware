@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    run: oauth-middleware
+  name: oauth-middleware
+  namespace: oauth-middleware
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: oauth-middleware
+  template:
+    metadata:
+      labels:
+        run: oauth-middleware
+        app: oauth-middleware
+    spec:
+      containers:
+        - image: ghcr.io/holores/oauth-middleware:sha-b0f8e20
+          name: oauth-middleware
+          env:
+            - name: URL
+              value: "https://auth.hlresort.community"
+          volumeMounts:
+            - mountPath: /config.json
+              name: server-config
+              subPath: config.json
+      volumes:
+        - name: server-config
+          configMap:
+            name: oauthserver-config-file

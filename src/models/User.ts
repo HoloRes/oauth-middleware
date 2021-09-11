@@ -4,13 +4,15 @@ const UserSchema: Schema = new mongoose.Schema({
 	_id: { type: String, required: true },
 	jiraKey: { type: String },
 	mailcowEmail: { type: String },
+	lastKnownName: { type: String },
 });
 
 export interface Type extends Document {
 	_doc: object;
 	_id: string,
 	jiraKey?: string,
-	mailcowEmail?: string
+	mailcowEmail?: string,
+	lastKnownName?: string,
 }
 
 export default mongoose.model<Type>('User', UserSchema, 'users');
