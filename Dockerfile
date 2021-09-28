@@ -1,5 +1,5 @@
-# Select NodeJS 16 Alpine image, alpine for smaller size
-FROM node:16-alpine
+# Select NodeJS 16
+FROM node:16
 
 # For Sentry release tracking
 ARG sha
