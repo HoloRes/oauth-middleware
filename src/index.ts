@@ -84,13 +84,6 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.listen(config.port);
 
-/* app.use((req, res, next) => {
-	if (req.body) {
-		console.log(`${req.originalUrl}: ${JSON.stringify(req.body, null, 2)}\n${JSON.stringify(req.headers, null, 2)}`);
-	}
-	next();
-}); */
-
 // MongoDB
 mongoose.connect(`mongodb+srv://${config.mongodb.username}:${config.mongodb.password}@${config.mongodb.host}/${config.mongodb.database}`, {
 	useNewUrlParser: true,
@@ -397,6 +390,11 @@ oauth2Server.exchange(oauth2orize.exchange.code((oauthClient, code, redirectUri,
 		});
 	});
 }));
+
+// Heartbeat route
+app.get('/heartbeat', (_, res) => {
+	res.status(200).send('OK');
+});
 
 // OpenID Connect routes
 app.get('/interaction/:uid',
