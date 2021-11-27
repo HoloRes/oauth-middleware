@@ -46,6 +46,8 @@ const createUser = async (username: string, email: string, discordId: string): P
 };
 
 const findUser = async (username: string, email: string, discordId: string): Promise<User> => {
+	let user;
+
 	const res = await axios.get(`${url}/user`, {
 		params: { username, expand: 'groups' },
 		auth: {
@@ -55,13 +57,15 @@ const findUser = async (username: string, email: string, discordId: string): Pro
 	}).catch((err) => {
 		if (err.response?.status === 404) {
 			createUser(username, email, discordId)
-				.then(() => findUser(username, email, discordId).then((user) => user)).catch((e) => {
+				.then(() => findUser(username, email, discordId)
+					.then((foundUser) => { user = foundUser; }))
+				.catch((e) => {
 					throw e;
 				});
 		} else throw err;
 	}) as AxiosResponse;
 
-	return res.data!;
+	return res?.data ?? user;
 };
 
 export const findUserByKey = async (key: string): Promise<User> => {
