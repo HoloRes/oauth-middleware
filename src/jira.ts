@@ -85,7 +85,15 @@ export const findUserByKey = async (key: string): Promise<User> => {
 
 const createEmail = async (member: Discord.GuildMember, user: UserDocType): Promise<string> => {
 	// eslint-disable-next-line max-len
-	async function createEmailRequest(username: string, password: string, userDoc: UserDocType): Promise<string> {
+	async function createEmailRequest(username: string, password: string, userId: string): Promise<string> {
+		const userDoc = await UserDoc.findById(userId).exec()
+			.catch((e) => {
+				throw e;
+			});
+		if (!userDoc) {
+			member.user.send('Something went wrong, please try again.');
+			throw new Error('No doc')
+		}
 		await axios.post(`${config.mailcow.url}/api/v1/add/mailbox`, {
 			active: 1,
 			domain: config.mailcow.tlDomain,
@@ -132,7 +140,7 @@ If you have any issues or want to setup email forwarding, check the internal wik
 				if (!valid) await member.user.send('Invalid username');
 				else {
 					username = message.content.replace(/\s/g, '-').toLowerCase();
-					resolve(await createEmailRequest(username, generatedPassword, user));
+					resolve(await createEmailRequest(username, generatedPassword, member.id));
 					collector.stop();
 				}
 			});
@@ -144,7 +152,7 @@ If you have any issues or want to setup email forwarding, check the internal wik
 				}
 			});
 		});
-	} return createEmailRequest(username, generatedPassword, user);
+	} return createEmailRequest(username, generatedPassword, member.id);
 };
 
 // eslint-disable-next-line max-len
