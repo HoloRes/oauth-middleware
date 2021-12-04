@@ -84,7 +84,8 @@ export const findUserByKey = async (key: string): Promise<User> => {
 };
 
 const createEmail = async (member: Discord.GuildMember, user: UserDocType): Promise<string> => {
-	async function createEmailRequest(username: string, password: string): Promise<string> {
+	// eslint-disable-next-line max-len
+	async function createEmailRequest(username: string, password: string, userDoc: UserDocType): Promise<string> {
 		await axios.post(`${config.mailcow.url}/api/v1/add/mailbox`, {
 			active: 1,
 			domain: config.mailcow.tlDomain,
@@ -100,15 +101,15 @@ const createEmail = async (member: Discord.GuildMember, user: UserDocType): Prom
 		}).catch(console.error);
 
 		// eslint-disable-next-line no-param-reassign
-		user.mailcowEmail = `${username}@${config.mailcow.tlDomain}`;
-		user.save();
+		userDoc.mailcowEmail = `${username}@${config.mailcow.tlDomain}`;
+		userDoc.save();
 		member.user.send(`Email has been automatically created:
 Email: \`${username}@${config.mailcow.tlDomain}\`
 Password: \`${password}\`
 Please immediately change your password here: ${config.mailcow.url}
 If you have any issues or want to setup email forwarding, check the internal wiki. If you still can't figure it out, contact support.
 		`);
-		return user.mailcowEmail;
+		return userDoc.mailcowEmail;
 	}
 
 	const generatedPassword = generator.generate({
@@ -131,7 +132,7 @@ If you have any issues or want to setup email forwarding, check the internal wik
 				if (!valid) await member.user.send('Invalid username');
 				else {
 					username = message.content.replace(/\s/g, '-').toLowerCase();
-					resolve(await createEmailRequest(username, generatedPassword));
+					resolve(await createEmailRequest(username, generatedPassword, user));
 					collector.stop();
 				}
 			});
@@ -143,7 +144,7 @@ If you have any issues or want to setup email forwarding, check the internal wik
 				}
 			});
 		});
-	} return createEmailRequest(username, generatedPassword);
+	} return createEmailRequest(username, generatedPassword, user);
 };
 
 // eslint-disable-next-line max-len
