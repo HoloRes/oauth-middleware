@@ -544,8 +544,7 @@ app.get('/api/userinfo', passport.authenticate('bearer', { session: false }), (r
 });
 
 app.get('/api/userByJiraKey', passport.authenticate('client-basic', { session: false }), async (req, res) => {
-	// @ts-expect-error Not assignable to
-	const doc = await User.findOne({ jiraKey: req.query.key }).lean().exec()
+	const doc = await User.findOne({ jiraKey: req.query.key as string }).lean().exec()
 		.catch(() => {
 			res.status(500).end();
 		});
@@ -555,7 +554,7 @@ app.get('/api/userByJiraKey', passport.authenticate('client-basic', { session: f
 });
 
 app.get('/api/userByDiscordId', passport.authenticate('client-basic', { session: false }), async (req, res) => {
-	const doc = await User.findById(req.query.id).exec()
+	const doc = await User.findById(req.query.id).lean().exec()
 		.catch(() => {
 			res.status(500).end();
 		});
@@ -571,6 +570,27 @@ app.get('/api/userByDiscordId', passport.authenticate('client-basic', { session:
 		...doc,
 		username: jiraUser.name,
 	});
+});
+
+app.post('/api/updateUserGroups', passport.authenticate('client-basic', { session: false }), async (req, res) => {
+	const doc = await User.findById(req.query.id).lean().exec()
+		.catch(() => {
+			res.status(500).end();
+		});
+
+	if (!doc) return res.status(404).end();
+
+	const jiraUser = await findUserByKey(doc.jiraKey!)
+		.catch(() => {
+			res.status(404).end();
+		}) as JiraUserType;
+
+	await updateUserGroups(doc._id, jiraUser.name)
+		.catch(() => {
+			res.status(500).end();
+		});
+
+	res.status(204).end();
 });
 
 app.post('/admin/application', (req, res) => {

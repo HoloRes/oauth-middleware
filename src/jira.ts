@@ -8,7 +8,7 @@ import { CreatedUser, User } from './types';
 // eslint-disable-next-line import/no-cycle
 import { client } from './index';
 import GroupLink, { Type as GroupLinkType } from './models/GroupLink';
-import UserDoc, { Type as UserType, Type as UserDocType } from './models/User';
+import UserDoc, { Type as UserType } from './models/User';
 
 const config = require('../config.json');
 
@@ -83,7 +83,7 @@ export const findUserByKey = async (key: string): Promise<User> => {
 	return res.data;
 };
 
-const createEmail = async (member: Discord.GuildMember, user: UserDocType): Promise<string> => {
+const createEmail = async (member: Discord.GuildMember): Promise<string> => {
 	// eslint-disable-next-line max-len
 	async function createEmailRequest(username: string, password: string, userId: string): Promise<string> {
 		const userDoc = await UserDoc.findById(userId).exec()
@@ -92,7 +92,7 @@ const createEmail = async (member: Discord.GuildMember, user: UserDocType): Prom
 			});
 		if (!userDoc) {
 			member.user.send('Something went wrong, please try again.');
-			throw new Error('No doc')
+			throw new Error('No doc');
 		}
 		await axios.post(`${config.mailcow.url}/api/v1/add/mailbox`, {
 			active: 1,
@@ -156,7 +156,7 @@ If you have any issues or want to setup email forwarding, check the internal wik
 };
 
 // eslint-disable-next-line max-len
-export const updateUserGroups = async (discordId: string, username: string): Promise<void | UserDocType> => {
+export const updateUserGroups = async (discordId: string, username: string): Promise<void> => {
 	const guild = await client.guilds.fetch(config.discordServerId)
 		.catch((err) => {
 			throw err;
@@ -172,7 +172,7 @@ export const updateUserGroups = async (discordId: string, username: string): Pro
 			throw e;
 		});
 	let email = userDoc?.mailcowEmail ?? undefined;
-	if (!email) email = await createEmail(member, <UserDocType>userDoc);
+	if (!email) email = await createEmail(member);
 
 	const user = await findUser(username, email, discordId)
 		.catch((err) => {
@@ -260,7 +260,7 @@ export const updateUserGroupsByKey = async (discordId: string, key: string): Pro
 		// eslint-disable-next-line no-param-reassign
 		doc.lastKnownName = user.name;
 		doc.save();
-		if (doc && !doc.mailcowEmail) createEmail(member, doc);
+		if (doc && !doc.mailcowEmail) createEmail(member);
 	});
 
 	// @ts-expect-error groupLinks possible void
@@ -307,6 +307,20 @@ export const updateUserGroupsByKey = async (discordId: string, key: string): Pro
 				throw err;
 			});
 		}
+	});
+
+	await axios.put(`${url}/user/properties/discordId`, {
+		value: discordId,
+	}, {
+		params: {
+			username: user.name,
+		},
+		auth: {
+			username: config.jira.username,
+			password: config.jira.apiToken,
+		},
+	}).catch((err) => {
+		console.log(err.response.data);
 	});
 
 	await Promise.all(addRolesPromise);
