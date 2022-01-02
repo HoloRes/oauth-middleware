@@ -53,7 +53,7 @@
     "express-session": "^1.17.1",
     "flake-idgen": "^1.4.0",
     "generate-password": "^1.6.0",
-    "helmet": "^4.6.0",
+    "helmet": "^5.0.0",
     "lodash": "^4.17.21",
     "mongodb": "^3.7.0",
     "mongoose": "^5.12.4",
