@@ -1,5 +1,5 @@
 // Imports
-import axios, { AxiosResponse } from 'axios';
+import axios from 'axios';
 import Discord, { GuildMember } from 'discord.js';
 
 // Local files
@@ -45,28 +45,30 @@ const createUser = async (username: string, email: string, discordId: string): P
 	return res.data;
 };
 
-const findUser = async (username: string, email: string, discordId: string): Promise<User> => {
-	let user;
-
-	const res = await axios.get(`${url}/user`, {
+// eslint-disable-next-line max-len
+const findUser = (username: string, email: string, discordId: string): Promise<User> => new Promise((reject, resolve) => {
+	axios.get(`${url}/user`, {
 		params: { username, expand: 'groups' },
 		auth: {
 			username: config.jira.username,
 			password: config.jira.apiToken,
 		},
-	}).catch((err) => {
-		if (err.response?.status === 404) {
-			createUser(username, email, discordId)
-				.then(() => findUser(username, email, discordId)
-					.then((foundUser) => { user = foundUser; }))
-				.catch((e) => {
-					throw e;
-				});
-		} else throw err;
-	}) as AxiosResponse;
-
-	return res?.data ?? user;
-};
+	})
+		.then((res) => resolve(res.data))
+		.catch((err) => {
+			if (err.response?.status === 404) {
+				createUser(username, email, discordId)
+					.then(() => {
+						findUser(username, email, discordId)
+							.then((foundUser) => resolve(foundUser))
+							.catch((e) => reject(e));
+					})
+					.catch((e) => {
+						reject(e);
+					});
+			} else reject(err);
+		});
+});
 
 export const findUserByKey = async (key: string): Promise<User> => {
 	const res = await axios.get(`${url}/user`, {
