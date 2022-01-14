@@ -572,7 +572,7 @@ app.get('/api/userByDiscordId', passport.authenticate('client-basic', { session:
 	});
 });
 
-app.post('/api/updateUserGroups', passport.authenticate('client-basic', { session: false }), async (req, res) => {
+app.get('/api/updateUserGroups', passport.authenticate('client-basic', { session: false }), async (req, res) => {
 	const doc = await User.findById(req.query.id).lean().exec()
 		.catch(() => {
 			res.status(500).end();
@@ -586,7 +586,8 @@ app.post('/api/updateUserGroups', passport.authenticate('client-basic', { sessio
 		}) as JiraUserType;
 
 	await updateUserGroups(doc._id, jiraUser.name)
-		.catch(() => {
+		.catch((err) => {
+			console.log(err);
 			res.status(500).end();
 		});
 
