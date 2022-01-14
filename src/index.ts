@@ -580,12 +580,7 @@ app.get('/api/updateUserGroups', passport.authenticate('client-basic', { session
 
 	if (!doc) return res.status(404).end();
 
-	const jiraUser = await findUserByKey(doc.jiraKey!)
-		.catch(() => {
-			res.status(404).end();
-		}) as JiraUserType;
-
-	await updateUserGroups(doc._id, jiraUser.name)
+	await updateUserGroupsByKey(doc._id, doc.jiraKey!)
 		.catch((err) => {
 			console.log(err);
 			res.status(500).end();
