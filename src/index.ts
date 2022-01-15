@@ -85,11 +85,7 @@ app.use(passport.session());
 app.listen(config.port);
 
 // MongoDB
-mongoose.connect(`mongodb+srv://${config.mongodb.username}:${config.mongodb.password}@${config.mongodb.host}/${config.mongodb.database}`, {
-	useNewUrlParser: true,
-	useUnifiedTopology: true,
-	useFindAndModify: false,
-});
+mongoose.connect(`mongodb+srv://${config.mongodb.username}:${config.mongodb.password}@${config.mongodb.host}/${config.mongodb.database}`);
 
 // OpenID Connect
 let oidcProvider: OIDCProvider;
@@ -373,7 +369,6 @@ oauth2Server.exchange(oauth2orize.exchange.code((oauthClient, code, redirectUri,
 		// eslint-disable-next-line max-len
 		if (!authCode || oauthClient._id !== authCode.clientId || redirectUri !== authCode.redirectUri) return callback(null, false);
 
-		// @ts-expect-error Callback is not options
 		Code.findByIdAndDelete(authCode._id, (err2: any) => {
 			if (err2) return callback(err2);
 
@@ -397,7 +392,8 @@ app.get('/heartbeat', (_, res) => {
 });
 
 // OpenID Connect routes
-app.get('/interaction/:uid',
+app.get(
+	'/interaction/:uid',
 	async (req, res, next) => {
 		const details = await oidcProvider.interactionDetails(req, res);
 		if (!details) res.status(400).end();
@@ -460,7 +456,8 @@ app.get('/interaction/:uid',
 			},
 			consent,
 		});
-	});
+	},
+);
 
 // Routes
 app.get('/auth/fail', (req, res) => {
@@ -510,7 +507,8 @@ app.get('/auth/discord/callback', passport.authenticate('discord', {
 
 app.post('/oauth2/token', [passport.authenticate(['client-basic', 'oauth2-client-password'], { session: false }), oauth2Server.token(), oauth2Server.errorHandler()]);
 
-app.get('/oauth2/authorize',
+app.get(
+	'/oauth2/authorize',
 	(req, res, next) => {
 		// @ts-expect-error never
 		if (!req.session) req.session.regenerate();
@@ -537,7 +535,8 @@ app.get('/oauth2/authorize',
 
 		return done(null, oauthClient, oauthClient.redirectUrl);
 	}),
-	oauth2Server.decision());
+	oauth2Server.decision(),
+);
 
 app.get('/api/userinfo', passport.authenticate('bearer', { session: false }), (req, res) => {
 	res.status(200).json(req.user);

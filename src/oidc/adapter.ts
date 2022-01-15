@@ -5,10 +5,7 @@ import snakeCase from 'lodash/snakeCase';
 
 const config = require('../../config.json');
 
-const connection = new MongoClient(`mongodb+srv://${config.mongodb.username}:${config.mongodb.password}@${config.mongodb.host}`, {
-	useNewUrlParser: true,
-	useUnifiedTopology: true,
-});
+const connection = new MongoClient(`mongodb+srv://${config.mongodb.username}:${config.mongodb.password}@${config.mongodb.host}`);
 let DB: Db;
 
 const grantable = new Set([

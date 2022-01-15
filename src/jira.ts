@@ -251,11 +251,13 @@ export const updateUserGroupsByKey = async (discordId: string, key: string): Pro
 		.catch((e) => {
 			throw e;
 		});
+	if (!guild) throw new Error('No guild found');
 
 	const member: GuildMember = await guild?.members.fetch(discordId)
 		.catch((e) => {
 			throw e;
 		});
+	if (!member) throw new Error('No member found');
 
 	UserDoc.findById(discordId, (err: any, doc: UserType) => {
 		if (err) return;
@@ -322,7 +324,7 @@ export const updateUserGroupsByKey = async (discordId: string, key: string): Pro
 			password: config.jira.apiToken,
 		},
 	}).catch((err) => {
-		console.log(err.response.data);
+		console.log(err.response?.data);
 	});
 
 	await Promise.all(addRolesPromise);
