@@ -291,7 +291,12 @@ export const updateUserGroupsByKey = async (discordId: string, key: string): Pro
 		}
 	});
 
-	const addRolesPromise = member.roles.cache.each((role: Discord.Role) => {
+	const addRolesPromise = member.roles.cache.each((role, key) => {
+		//! Debug stuff
+		console.log(key);
+		console.log(role);
+		console.log(role?.id);
+		console.log('--------');
 		const link = groupLinks.find((item) => item._id === role.id);
 		if (link) {
 			axios.post(`${url}/group/user`, {
