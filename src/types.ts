@@ -1,4 +1,4 @@
-interface Group {
+export interface Group {
 	name: string,
 	self: string
 }

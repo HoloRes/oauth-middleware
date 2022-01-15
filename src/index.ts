@@ -572,14 +572,16 @@ app.get('/api/userByDiscordId', passport.authenticate('client-basic', { session:
 });
 
 app.get('/api/updateUserGroups', passport.authenticate('client-basic', { session: false }), async (req, res) => {
+	if (!req.query.id) return res.status(404).end();
 	const doc = await User.findById(req.query.id).lean().exec()
 		.catch(() => {
 			res.status(500).end();
 		});
 
 	if (!doc) return res.status(404).end();
+	if (!doc.jiraKey) return res.status(400).end();
 
-	await updateUserGroupsByKey(doc._id, doc.jiraKey!)
+	await updateUserGroupsByKey(doc._id, doc.jiraKey)
 		.catch((err) => {
 			console.log(err);
 			res.status(500).end();

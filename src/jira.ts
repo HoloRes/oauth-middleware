@@ -4,7 +4,7 @@ import Discord, { GuildMember } from 'discord.js';
 
 // Local files
 import generator from 'generate-password';
-import { CreatedUser, User } from './types';
+import { CreatedUser, Group, User } from './types';
 // eslint-disable-next-line import/no-cycle
 import { client } from './index';
 import GroupLink, { Type as GroupLinkType } from './models/GroupLink';
@@ -158,16 +158,33 @@ If you have any issues or want to setup email forwarding, check the internal wik
 };
 
 // eslint-disable-next-line max-len
+async function asyncForEach<T = any>(
+	array: T[],
+	callback:(
+		((value: T) => Promise<void>)
+		| ((value: T, index: number) => Promise<void>)
+		| ((value: T, index: number, array: T[]) => Promise<void>)
+	),
+) {
+	for (let index = 0; index < array.length; index++) {
+		// eslint-disable-next-line no-await-in-loop
+		await callback(array[index], index, array);
+	}
+}
+
+// eslint-disable-next-line max-len
 export const updateUserGroups = async (discordId: string, username: string): Promise<void> => {
 	const guild = await client.guilds.fetch(config.discordServerId)
 		.catch((err) => {
 			throw err;
 		});
+	if (!guild) throw new Error('No guild found');
 
-	const member: GuildMember = await guild?.members.fetch(discordId)
+	const member = await guild.members.fetch(discordId)
 		.catch((err) => {
 			throw err;
 		});
+	if (!member) throw new Error('No member found');
 
 	const userDoc = await UserDoc.findById(discordId).exec()
 		.catch((e) => {
@@ -181,11 +198,11 @@ export const updateUserGroups = async (discordId: string, username: string): Pro
 			throw err;
 		});
 
-	// @ts-expect-error Possible void
-	const groupLinks: Array<GroupLinkType> = await GroupLink.find({}).lean().exec()
-		.catch((err) => {
-			throw err;
-		});
+	const groupLinks = await GroupLink.find({}).lean().exec()
+		.catch((e) => {
+			throw e;
+		}) as GroupLinkType[] | void;
+	if (!groupLinks) return;
 
 	UserDoc.findById(discordId, (err: any, doc: UserType) => {
 		if (err) return;
@@ -196,10 +213,11 @@ export const updateUserGroups = async (discordId: string, username: string): Pro
 		}
 	});
 
-	user.groups.items.forEach((group) => {
+	// For whatever reason TypeScript can't figure out the callback type
+	await asyncForEach<Group>(user.groups.items, async (group: Group) => {
 		const link = groupLinks.find((item) => item.jiraName === group.name);
 		if (link && !member.roles.cache.has(link._id)) {
-			axios.delete(`${url}/group/user`, {
+			await axios.delete(`${url}/group/user`, {
 				params: {
 					groupname: link.jiraName,
 					username,
@@ -253,7 +271,7 @@ export const updateUserGroupsByKey = async (discordId: string, key: string): Pro
 		});
 	if (!guild) throw new Error('No guild found');
 
-	const member: GuildMember = await guild?.members.fetch(discordId)
+	const member = await guild.members.fetch(discordId)
 		.catch((e) => {
 			throw e;
 		});
@@ -267,16 +285,17 @@ export const updateUserGroupsByKey = async (discordId: string, key: string): Pro
 		if (doc && !doc.mailcowEmail) createEmail(member);
 	});
 
-	// @ts-expect-error groupLinks possible void
-	const groupLinks: Array<GroupLinkType> = await GroupLink.find({}).lean().exec()
+	const groupLinks = await GroupLink.find({}).lean().exec()
 		.catch((e) => {
 			throw e;
-		});
+		}) as GroupLinkType[] | void;
+	if (!groupLinks) return;
 
-	user.groups.items.forEach((group) => {
+	// For whatever reason TypeScript can't figure out the callback type
+	await asyncForEach<Group>(user.groups.items, async (group: Group) => {
 		const link = groupLinks.find((item) => item.jiraName === group.name);
 		if (link && !member.roles.cache.has(link._id)) {
-			axios.delete(`${url}/group/user`, {
+			await axios.delete(`${url}/group/user`, {
 				params: {
 					groupname: link.jiraName,
 					username: user.name,
@@ -285,18 +304,14 @@ export const updateUserGroupsByKey = async (discordId: string, key: string): Pro
 					username: config.jira.username,
 					password: config.jira.apiToken,
 				},
-			}).catch((e) => {
-				throw e;
+			}).catch((err) => {
+				console.log(err.response.data);
+				throw err;
 			});
 		}
 	});
 
-	const addRolesPromise = member.roles.cache.each((role, key) => {
-		//! Debug stuff
-		console.log(key);
-		console.log(role);
-		console.log(role?.id);
-		console.log('--------');
+	const addRolesPromise = member.roles.cache.each((role) => {
 		const link = groupLinks.find((item) => item._id === role.id);
 		if (link) {
 			axios.post(`${url}/group/user`, {
