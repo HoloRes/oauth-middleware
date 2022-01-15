@@ -249,7 +249,7 @@ passport.use(new DiscordStrategy(config.discord, async (accessToken: string, ref
 			cb(null, user!);
 		} else {
 			try {
-				await updateUserGroupsByKey(profile.id, doc.jiraKey!);
+				await updateUserGroupsByKey(profile.id, doc.jiraKey);
 			} catch (e) {
 				// eslint-disable-next-line max-len
 				// Purposefully do not do anything with this error, a Jira user already exists, so no need to error the entire auth process.
@@ -277,11 +277,9 @@ passport.use(new BearerStrategy(async (accessToken, cb) => {
 	// No user found
 	if (!user) return cb(null, false);
 
-	if (!user.jiraKey) {
-		await updateUserGroupsByKey(user._id, user.jiraKey!);
-	} else {
+	if (user.jiraKey) {
 		try {
-			await updateUserGroupsByKey(user._id, user.jiraKey!);
+			await updateUserGroupsByKey(user._id, user.jiraKey);
 		} catch (e) {
 			// eslint-disable-next-line max-len
 			// Purposefully do not do anything with this error, a Jira user already exists, so no need to error the entire auth process.
