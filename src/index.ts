@@ -156,6 +156,8 @@ let oidcProvider: OIDCProvider;
 						sub,
 						email: user?.mailcowEmail,
 						name: user?.lastKnownName ?? undefined,
+						preferred_username: user?.lastKnownName ?? undefined,
+						picture: '',
 						...user,
 					};
 				},
