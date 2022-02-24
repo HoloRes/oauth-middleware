@@ -128,6 +128,8 @@ let oidcProvider: OIDCProvider;
 				'sub',
 				'email',
 			],
+			email: ['email'],
+			profile: ['name', 'preferred_name', 'picture'],
 			sid: null,
 		},
 		features: {
