@@ -129,7 +129,7 @@ let oidcProvider: OIDCProvider;
 				'email',
 			],
 			email: ['email'],
-			profile: ['name', 'preferred_name', 'picture'],
+			profile: ['name', 'preferred_username', 'picture'],
 			sid: null,
 		},
 		features: {
