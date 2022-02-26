@@ -190,11 +190,13 @@ passport.use(new DiscordStrategy(config.discord, async (accessToken: string, ref
 
 	await guild.roles.fetch();
 
+	let encounteredError = false;
 	const member = await guild?.members.fetch(profile.id)
-		.catch((err) => {
+		.catch(() => {
 			cb(new Error("You don't have the required permissions to login"));
-			throw err;
+			encounteredError = true;
 		});
+	if (encounteredError) return;
 
 	if (!member) {
 		cb(new Error(`Something went wrong, please try again later. Please report this error to the administrator. ERROR_CODE: DISCORD_FAILED_MEMBER_FETCH TIMESTAMP: ${new Date().toISOString()}`));
