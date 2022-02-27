@@ -146,19 +146,31 @@ let oidcProvider: OIDCProvider;
 			return {
 				accountId: sub,
 				async claims() {
+					let jiraUser;
+					if (!user!.lastKnownName) {
+						try {
+							jiraUser = await findUserByKey(user!.jiraKey!);
+						} catch (e) {
+							// Purposefully do not do anything with this error
+							jiraUser = null;
+						}
+					} else {
+						jiraUser = await findUserByKey(user!.jiraKey!);
+					}
+
 					if (ctx.oidc.client!.clientId === 'cloudflare') {
 						return {
 							sub,
 							email: 'cloudflare@hlresort.community',
-							name: user?.lastKnownName ?? undefined,
+							name: jiraUser?.name ?? user?.lastKnownName,
 							...user,
 						};
 					}
 					return {
 						sub,
 						email: user?.mailcowEmail,
-						name: user?.lastKnownName ?? undefined,
-						preferred_username: user?.lastKnownName ?? undefined,
+						name: jiraUser?.name ?? user?.lastKnownName,
+						preferred_username: jiraUser?.name ?? user?.lastKnownName,
 						picture: '',
 						...user,
 					};
