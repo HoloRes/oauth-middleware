@@ -1,5 +1,5 @@
 # Select NodeJS 16
-FROM node:16
+FROM node:22
 
 # For Sentry release tracking
 ARG sha
