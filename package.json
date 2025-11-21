@@ -32,7 +32,7 @@
     "@types/passport": "1.0.17",
     "@types/passport-http": "0.3.11",
     "@types/passport-http-bearer": "1.0.42",
-    "@types/passport-oauth2-client-password": "0.1.5",
+    "@types/passport-oauth2-client-password": "0.1.6",
     "@typescript-eslint/eslint-plugin": "5.62.0",
     "@typescript-eslint/parser": "5.62.0",
     "eslint": "8.57.1",
