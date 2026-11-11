@@ -44,7 +44,7 @@
   },
   "dependencies": {
     "@oauth-everything/passport-discord": "^1.0.2",
-    "@tsconfig/node16": "^1.0.2",
+    "@tsconfig/node16": "^16.0.0",
     "axios": "^0.26.0",
     "biguint-format": "^1.0.2",
     "connect-mongodb-session": "^3.1.1",
